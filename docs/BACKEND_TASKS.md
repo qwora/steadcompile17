@@ -34,6 +34,10 @@ npx supabase secrets set NOTIFY_SECRET=<long random string, e.g. openssl rand -h
 npx supabase functions deploy notify --no-verify-jwt   # caller is the DB trigger, checked by NOTIFY_SECRET
 ```
 
+> **Supabase CLI 3.x:** add `--remote` to `db push` / `db query` (it defaults to a local database), and pass `--yes` when an agent runs it. On Windows PowerShell, run `npx.cmd …` if `npx` is blocked by the script execution policy.
+>
+> **Live project:** `stead`, ref `xdbvowflznhepcfmbrnj`, Seoul (ap-northeast-2). Migrations, APNs/notify secrets, Vault entries and both functions are in place.
+
 5. Tell the database where `notify` is (SQL editor, once). Use the same secret as `NOTIFY_SECRET`:
 
 ```sql
