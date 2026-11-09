@@ -1,30 +1,75 @@
 import SwiftUI
 
-/// Phase 0 shell: proves the app, theme and kitten run on the phone.
-/// Mode picker, Home and Guardian screens replace this in later phases.
+/// Who is using this phone. Chosen once during onboarding.
+enum AppMode: String { case protected, guardian }
+
 struct RootView: View {
+    @AppStorage("mode") private var modeRaw = ""
+    @EnvironmentObject private var router: Router
+
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            VStack(spacing: 20) {
-                Spacer()
-                KittenView(mood: .watching, size: 150)
-                Text("Stead")
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(Theme.text)
-                Text("Safer, together.")
-                    .font(.title3)
-                    .foregroundStyle(Theme.muted)
-                Spacer()
-                Card {
-                    Label(Config.isBackendConfigured ? "Backend connected" : "Backend not set up yet",
-                          systemImage: Config.isBackendConfigured ? "checkmark.circle.fill" : "circle.dashed")
-                        .foregroundStyle(Config.isBackendConfigured ? Theme.teal : Theme.muted)
-                }
+        Group {
+            switch AppMode(rawValue: modeRaw) {
+            case .protected: ProtectedTabs()
+            case .guardian: GuardianHomeView()
+            case nil: OnboardingView()
             }
-            .padding(24)
         }
+        .animation(.easeInOut(duration: 0.35), value: modeRaw)
     }
 }
 
-#Preview { RootView() }
+struct ProtectedTabs: View {
+    @EnvironmentObject private var router: Router
+    @EnvironmentObject private var store: EventStore
+
+    var body: some View {
+        TabView(selection: $router.tab) {
+            NavigationStack { HomeView() }
+                .tabItem { Label("Home", systemImage: "house.fill") }
+                .tag(Router.Tab.home)
+            NavigationStack { ActivityView() }
+                .tabItem { Label("Activity", systemImage: "list.bullet.rectangle.fill") }
+                .tag(Router.Tab.activity)
+                .badge(store.openWarnings.count)
+            NavigationStack { FamilyView() }
+                .tabItem { Label("Family", systemImage: "person.2.fill") }
+                .tag(Router.Tab.family)
+            NavigationStack { SettingsView() }
+                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+                .tag(Router.Tab.settings)
+        }
+        .sheet(item: Binding(get: { router.openEvent.map(EventRef.init) }, set: { router.openEvent = $0?.id })) { ref in
+            NavigationStack { MessageCheckView(eventID: ref.id) }
+        }
+        #if DEBUG
+        .task { await DebugSeed.runIfRequested() }
+        #endif
+    }
+}
+
+#if DEBUG
+/// Debug-only: launch with `-seedSamples YES` to run every example, `-openSample N` to open one result.
+@MainActor
+enum DebugSeed {
+    static func runIfRequested() async {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: "seedSamples") else { return }
+        EventStore.shared.clear()
+        var opened: UUID?
+        let target = defaults.object(forKey: "openSample") as? Int
+        for (i, s) in Samples.all.enumerated() {
+            let e = await Pipeline.process(app: s.app, sender: s.sender, subtitle: "", body: s.body,
+                                           date: .now.addingTimeInterval(Double(i)), source: .sample)
+            if i == target { opened = e.id }
+        }
+        if let opened { Router.shared.openEvent = opened }
+    }
+}
+#endif
+
+struct EventRef: Identifiable { let id: UUID }
+
+#Preview {
+    RootView().environmentObject(EventStore.shared).environmentObject(Router.shared)
+}

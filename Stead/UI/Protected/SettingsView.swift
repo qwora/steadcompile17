@@ -1,0 +1,43 @@
+import SwiftUI
+
+struct SettingsView: View {
+    @EnvironmentObject private var store: EventStore
+    @AppStorage("displayName") private var displayName = ""
+    @AppStorage("mode") private var modeRaw = ""
+    @AppStorage("showEveryCheck") private var showEveryCheck = false
+    @AppStorage("autoShareSerious") private var autoShare = true
+    @State private var confirmClear = false
+
+    var body: some View {
+        List {
+            Section("You") {
+                TextField("Name", text: $displayName)
+            }
+            Section {
+                NavigationLink { SetupGuideView() } label: { Label("Set up automatic checks", systemImage: "bolt.badge.automatic.fill") }
+            }
+            Section {
+                Toggle("Tell my family when it's serious", isOn: $autoShare)
+                Toggle("Show every check (for testing)", isOn: $showEveryCheck)
+            } footer: {
+                Text("Normal messages are checked on this phone and never sent anywhere.")
+            }
+            Section("Server") {
+                Label(Config.isBackendConfigured ? "Connected" : "Not set up: using on-phone checks only",
+                      systemImage: Config.isBackendConfigured ? "checkmark.circle.fill" : "circle.dashed")
+                    .foregroundStyle(Config.isBackendConfigured ? Theme.teal : Theme.muted)
+            }
+            Section {
+                Button("Clear message history", role: .destructive) { confirmClear = true }
+                Button("Switch who this phone is for") { modeRaw = "" }
+            }
+        }
+        .tint(Theme.teal)
+        .scrollContentBackground(.hidden)
+        .background(Theme.background)
+        .navigationTitle("Settings")
+        .confirmationDialog("Clear all checked messages from this phone?", isPresented: $confirmClear, titleVisibility: .visible) {
+            Button("Clear history", role: .destructive) { store.clear() }
+        }
+    }
+}

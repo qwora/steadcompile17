@@ -9,6 +9,8 @@ struct KittenView: View {
     var color: Color = Theme.teal
     var mood: Mood = .watching
     var size: CGFloat = 120
+    /// Colour of the raised veil when covering (amber by default, red when urgent).
+    var veilColor: Color = Theme.amber
 
     @State private var pose = Pose.neutral
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -35,7 +37,7 @@ struct KittenView: View {
             veil.addLine(to: CGPoint(x: 100, y: 140))
             veil.addLine(to: CGPoint(x: 0, y: 140))
             veil.closeSubpath()
-            veilContext.fill(veil, with: .color(mood == .covering ? Theme.amber.opacity(0.9) : Color(hex: 0x0B0D10, opacity: 0.22)))
+            veilContext.fill(veil, with: .color(mood == .covering ? veilColor.opacity(0.92) : Color(hex: 0x0B0D10, opacity: 0.22)))
 
             drawEye(&context, x: 33, eye: pose.left)
             drawEye(&context, x: 58, eye: pose.right)
