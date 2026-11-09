@@ -28,7 +28,7 @@ struct FamilyView: View {
 
                 Card {
                     Label("How the family code works", systemImage: "lock.shield.fill").font(.headline).foregroundStyle(Theme.teal)
-                    Text("If a family member's account is hacked and asks you for money, Stead asks you to check their family code first. Only the real person can open it, with their face.")
+                    Text("Family asking for money? Ask for their code. Only the real person can open it.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
                 }
 
@@ -67,8 +67,8 @@ struct FamilyView: View {
             Text(family.members.isEmpty ? "Your family circle" : "\(myName.isEmpty ? "You" : myName) + \(family.members.count)")
                 .font(.title2.bold())
             Text(family.members.isEmpty
-                 ? "Add the people you trust. They help you check messages, and they get a family code only they can open."
-                 : "These people can help you check messages.")
+                 ? "Add people you trust. They help you check messages."
+                 : "They help you check messages.")
                 .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
         }
         .padding(.vertical, 10)

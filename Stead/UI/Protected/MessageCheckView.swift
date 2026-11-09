@@ -40,7 +40,7 @@ struct MessageCheckView: View {
                         Label(event.rules.decision == .ignored ? (event.rules.ignoreReason ?? "Not a message") : "No warning signs found",
                               systemImage: "checkmark.circle.fill")
                             .font(.headline).foregroundStyle(Theme.teal)
-                        Text("Stead checked this on your phone. It wasn't sent anywhere.")
+                        Text("Checked on your phone only.")
                             .foregroundStyle(Theme.muted)
                     }
                 }
@@ -80,7 +80,7 @@ struct MessageCheckView: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            Text("Links in this message are not clickable here.").font(.caption2).foregroundStyle(Theme.muted)
+            Text("Links here don't open.").font(.caption2).foregroundStyle(Theme.muted)
         }
     }
 
@@ -89,7 +89,7 @@ struct MessageCheckView: View {
         let a = event.assessment
 
         if a?.isPreliminary == true {
-            Label("Preliminary: quick on-phone check. Verify independently.", systemImage: "info.circle")
+            Label("Quick check only. Please double-check.", systemImage: "info.circle")
                 .font(.subheadline).foregroundStyle(Theme.amber)
         }
 
@@ -103,14 +103,14 @@ struct MessageCheckView: View {
                 }
             }
             if event.thread.codeAfterWarning {
-                Text("A security code arrived minutes after a suspicious message\(event.thread.relatedSender.map { " from \($0)" } ?? ""). Scammers often ask for this code. Never share it.")
+                Text("A code arrived right after a suspicious message. Never share it.")
                     .font(.body)
             } else if let a {
                 Text(a.explanationForUser).font(.body)
             }
             if !event.rules.signals.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(event.rules.signals) { s in
+                    ForEach(event.rules.signals.prefix(3)) { s in
                         Label {
                             Text(s.label).foregroundStyle(Theme.text)
                         } icon: {
@@ -122,15 +122,15 @@ struct MessageCheckView: View {
                 .padding(.top, 4)
             }
             if event.thread.flaggedCount >= 2 {
-                Label("\(event.senderLabel) sent \(event.thread.flaggedCount) suspicious messages in 30 minutes.", systemImage: "arrow.triangle.2.circlepath")
+                Label("\(event.thread.flaggedCount) suspicious messages from this sender", systemImage: "arrow.triangle.2.circlepath")
                     .font(.subheadline).foregroundStyle(Theme.amber)
             }
         }
 
         if let a, !a.uncertainties.isEmpty {
             Card {
-                Text("What Stead can't confirm").font(.headline)
-                ForEach(a.uncertainties, id: \.self) { u in
+                Text("Stead can't check").font(.headline)
+                ForEach(a.uncertainties.prefix(1), id: \.self) { u in
                     Label(u, systemImage: "questionmark.circle").font(.subheadline).foregroundStyle(Theme.muted)
                 }
             }
@@ -168,7 +168,7 @@ struct MessageCheckView: View {
                     store.update(event.id) { $0.dismissedByUser = true }
                     dismiss()
                 } label: {
-                    Text("I know this sender, it's fine").font(.headline).frame(maxWidth: .infinity, minHeight: 50)
+                    Text("I know them, it's fine").font(.headline).frame(maxWidth: .infinity, minHeight: 50)
                 }
                 .foregroundStyle(Theme.muted)
             }
@@ -191,9 +191,9 @@ struct MessageCheckView: View {
 
     private func familyDetail(_ status: MessageEvent.FamilyStatus) -> String {
         switch status {
-        case .shared: "Your family can see a short summary and will check it. Wait before you reply."
-        case .checking: "Someone in your family is looking into it now."
-        case .resolved: "Your family checked this message."
+        case .shared: "Your family will check. Wait before you reply."
+        case .checking: "Your family is checking now."
+        case .resolved: "Your family checked it."
         case .none: ""
         }
     }

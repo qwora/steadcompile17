@@ -90,7 +90,7 @@ struct HomeView: View {
                     Image(systemName: "bolt.badge.automatic.fill").font(.title).foregroundStyle(Theme.amber)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Turn on automatic checks").font(.headline).foregroundStyle(Theme.text)
-                        Text("A 2-minute setup so Stead checks SMS and WhatsApp by itself.")
+                        Text("Stead checks SMS and WhatsApp by itself.")
                             .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.leading)
                     }
                     Spacer()
@@ -118,12 +118,12 @@ struct HomeView: View {
     }
 
     private var heroDetail: String {
-        if isChecking { return "Stead is checking a message with warning signs." }
+        if isChecking { return "Just a moment." }
         switch topLevel {
-        case .normal: return "Stead is watching your messages. Nothing needs your attention."
-        case .worthALook: return "Tap below to see what Stead noticed."
-        case .beCareful: return "Don't tap links or send money until you've checked."
-        case .urgent: return "Don't share codes or send money. Call your family now."
+        case .normal: return "Nothing needs you right now."
+        case .worthALook: return "Tap below to see why."
+        case .beCareful: return "Don't tap links or send money."
+        case .urgent: return "Call your family now."
         }
     }
 

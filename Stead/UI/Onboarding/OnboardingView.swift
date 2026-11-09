@@ -54,7 +54,7 @@ struct OnboardingView: View {
                 Text("Stead").font(.system(size: 48, weight: .bold))
                 Text("Safer, together.").font(.title2).foregroundStyle(Theme.teal)
             }
-            Text("Stead quietly checks new messages for scam warning signs, and brings your family in when it matters.")
+            Text("Stead checks your messages for scams, and calls in family when it matters.")
                 .font(.title3).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
             Spacer()
             Button("Get started") { step = 1 }.buttonStyle(PrimaryButtonStyle())
@@ -98,15 +98,15 @@ struct OnboardingView: View {
             Text("How Stead protects you").font(.largeTitle.bold())
             VStack(alignment: .leading, spacing: 14) {
                 Promise(icon: "iphone", text: "Normal messages stay on this phone.")
-                Promise(icon: "sparkles", text: "Only messages with warning signs get a closer AI look.")
-                Promise(icon: "person.2.fill", text: "Family sees a short summary, never your chats.")
+                Promise(icon: "sparkles", text: "Only risky ones get an AI check.")
+                Promise(icon: "person.2.fill", text: "Family never sees your chats.")
             }
             Group {
                 Card {
                     Toggle(isOn: $autoShare) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Tell my family when it's serious").font(.headline)
-                            Text("If Stead sees a likely scam, your family gets a heads-up so they can help.")
+                            Text("Family gets a heads-up on likely scams.")
                                 .font(.subheadline).foregroundStyle(Theme.muted)
                         }
                     }

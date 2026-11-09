@@ -16,7 +16,7 @@ enum Notifier {
 
     static func checking(_ event: MessageEvent) {
         post(event, title: "Stead · Taking a closer look",
-             body: "A message from \(event.senderLabel) has warning signs. Wait before you reply.",
+             body: "Wait before you reply.",
              level: .worthALook, sound: false)
     }
 
@@ -27,8 +27,8 @@ enum Notifier {
         if event.familyCheck == .needed {
             let name = event.familyMemberID.flatMap { FamilyStore.shared.member(id: $0)?.name }
             title = "Stead · Check the family code first"
-            body = name.map { "\($0) is asking for something. Ask \($0) for the family code before you send anything." }
-                ?? "Someone says they're family. Ask for their family code before you send anything."
+            body = name.map { "\($0) is asking for something. Ask for the family code first." }
+                ?? "Someone says they're family. Ask for the family code first."
             post(event, title: title, body: body, level: .urgent, sound: true)
             return
         }
@@ -41,12 +41,12 @@ enum Notifier {
             body = "\(headline). Tap to see why."
         case .beCareful:
             title = "Stead · Be careful"
-            body = "\(headline). Don't tap links or send money. Tap to see why."
+            body = "\(headline). Don't tap links or send money."
         case .urgent:
             title = "Stead · Stop and talk to family"
             body = event.thread.codeAfterWarning
-                ? "A security code just arrived after a suspicious message. Don't share it with anyone."
-                : "\(event.senderLabel) keeps pushing. Call your family before you do anything."
+                ? "Don't share the code you just got. Call family."
+                : "Call your family before you do anything."
         }
         post(event, title: title, body: body, level: event.level, sound: event.level >= .beCareful)
     }

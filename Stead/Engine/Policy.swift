@@ -48,7 +48,7 @@ enum LocalAssessor {
         if ids.contains("link") { asks.append("link") }
         if ids.contains("attachment") { asks.append("install") }
 
-        let reasons = rules.signals.prefix(3).map { $0.label.lowercased() }.joined(separator: ", ")
+        let reasons = rules.signals.prefix(2).map { $0.label.lowercased() }.joined(separator: ", ")
         return Assessment(
             category: category,
             concernLevel: rules.score >= 6 ? "be_careful" : "worth_a_look",
@@ -56,10 +56,10 @@ enum LocalAssessor {
             claimedIdentity: nil,
             requestedAction: nil,
             scamStage: "none",
-            explanationForUser: "Stead noticed warning signs: \(reasons). Don't tap links or send money until you've checked.",
+            explanationForUser: "It \(reasons). Don't tap links or send money.",
             summaryForGuardian: "A message with warning signs (\(reasons)).",
-            recommendedVerification: "Contact the sender on a number you already know, not one in the message.",
-            uncertainties: ["This is a quick on-phone check. The full AI review wasn't available."],
+            recommendedVerification: "Call them on a number you already have.",
+            uncertainties: ["The full AI check wasn't available."],
             isPreliminary: true)
     }
 }

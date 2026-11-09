@@ -61,7 +61,7 @@ struct FamilyCodeCheckCard: View {
                 }
             }
 
-            Text("Call \(name) on the number you already have, or ask in person. The real \(name) opens the code in Stead with their face. A hacker can't.")
+            Text("Call \(name) and ask for it. Only the real \(name) has it.")
                 .font(.body).foregroundStyle(Theme.text)
 
             TextField("", text: $code, prompt: Text("6-digit code").foregroundStyle(Theme.muted))
@@ -85,7 +85,7 @@ struct FamilyCodeCheckCard: View {
                 .opacity(code.count == 6 && memberID != nil ? 1 : 0.4)
 
             if family.members.filter(\.paired).isEmpty {
-                Label("No family member has a code yet. Add one in the Family tab.", systemImage: "info.circle")
+                Label("Add family in the Family tab first.", systemImage: "info.circle")
                     .font(.footnote).foregroundStyle(Theme.muted)
             }
         }
@@ -97,9 +97,7 @@ struct FamilyCodeCheckCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("Code matches", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(Theme.teal)
                 Text("This is really \(name).").font(.title2.bold())
-                Text("Only send money if you're comfortable. You can still call them first.")
-                    .font(.subheadline).foregroundStyle(Theme.muted)
-            }
+                            }
         }
     }
 
@@ -110,7 +108,7 @@ struct FamilyCodeCheckCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Wrong code", systemImage: "xmark.octagon.fill").font(.headline).foregroundStyle(Theme.red)
                     Text("This may not be \(name).").font(.title2.bold())
-                    Text("Don't send money or codes. Call \(name) on the number you already have.")
+                    Text("Don't send anything. Call \(name).")
                         .font(.body).foregroundStyle(Theme.text)
                 }
             }

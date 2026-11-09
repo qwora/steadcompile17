@@ -45,26 +45,25 @@ private struct CaseCard: View {
             && (item.verify_target_member_id == nil || item.verify_target_member_id == me)
     }
 
+    private var resolved: Bool { item.status == "resolved" || item.verify_answer != nil }
+
     var body: some View {
         Card {
             HStack {
-                Label(level.title, systemImage: level.symbol).font(.headline).foregroundStyle(level.color)
+                Label(level.title, systemImage: level.symbol).font(.headline).foregroundStyle(resolved ? Theme.muted : level.color)
                 Spacer()
                 Text(item.created_at, style: .relative).font(.caption).foregroundStyle(Theme.muted)
             }
             Text(asksMe
-                 ? (item.verify_target_member_id == me ? "Someone messaging \(person) says they're you." : "Someone messaging \(person) says they're family. Is it you?")
-                 : "\(person) got a message that may be a scam")
+                 ? (item.verify_target_member_id == me ? "Is this you messaging \(person)?" : "Someone says they're family. You?")
+                 : "\(person) got a suspicious message")
                 .font(.title3.bold())
-            Text(item.summary_for_guardian).foregroundStyle(Theme.text)
-            if let ask = item.requested_action {
-                Label("Asks to: \(ask)", systemImage: "hand.raised.fill").font(.subheadline.weight(.semibold)).foregroundStyle(level.color)
-            }
-            if let how = item.recommended_verification {
-                Label(how, systemImage: "checkmark.shield").font(.subheadline).foregroundStyle(Theme.muted)
-            }
-            if let from = item.sender_label {
-                Text([item.app, from].compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(Theme.muted)
+            if !resolved {
+                if let ask = item.requested_action {
+                    Label(ask.prefix(1).uppercased() + ask.dropFirst(), systemImage: "hand.raised.fill")
+                        .font(.headline).foregroundStyle(level.color).lineLimit(2)
+                }
+                Text(item.summary_for_guardian).foregroundStyle(Theme.muted).lineLimit(2)
             }
             actions
         }

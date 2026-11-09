@@ -27,7 +27,7 @@ struct LookingOutSection: View {
 
             if !compact {
                 if family.keys.isEmpty {
-                    Text("Look out for a parent or relative: scan the QR on their Stead. You'll see their warnings and get a family code only you can open.")
+                    Text("Scan the QR on a parent's Stead to look out for them.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
                 }
                 Button { scanning = true } label: { Label("Scan family QR", systemImage: "qrcode.viewfinder") }
@@ -108,7 +108,7 @@ struct CodeView: View {
                     Text("\(left)s").font(.headline.monospacedDigit())
                 }
                 .frame(width: 70, height: 70)
-                Text("Read it to \(key.protectedName), ideally on a call. Never type it into a link.")
+                Text("Read it to \(key.protectedName) on a call.")
                     .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
                 Spacer()
                 Button("Hide code") { dismiss() }.buttonStyle(PrimaryButtonStyle(tint: key.color.color))
