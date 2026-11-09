@@ -59,6 +59,11 @@ Deno.test("output validation: schema, enums, nulls, safety rules", () => {
   const quoted = validateAssessment({ ...good, summary_for_guardian: "It says: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다." }, "[국외발신] 도로 관리24: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다.");
   assertEquals(quoted?.summary_for_guardian, "A message pretending to be a government office, asking for a payment.",
     "summary quotes the message");
+  const teacher = "Salam, please review the attached statement of account. Open it on a computer, it's not visible on mobile. Forward to your finance manager.";
+  assert(validateAssessment({ ...good, summary_for_guardian: "A contact asks them to open the attached statement of account on a computer and forward it." }, teacher),
+    "a short shared phrase is a paraphrase, not a quote");
+  assertEquals(validateAssessment({ ...good, summary_for_guardian: "Says: please review the attached statement of account. Open it on a computer, it's not visible" }, teacher)
+    ?.summary_for_guardian, "A message pretending to be a government office, asking for a payment.", "a long English quote is replaced");
 });
 
 Deno.test("prompt fences the message and neutralises a fake closing tag", () => {

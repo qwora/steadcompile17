@@ -75,7 +75,7 @@ Never lower the level because the sender is a saved contact: accounts get hacked
 - bank_impersonation: card used abroad, account locked, verify your login, "we noticed unusual activity, confirm your details", a fake bank officer asking you to move money to protect it; low-interest loan offers that need a fee or "repay your old loan first" (저금리 대환대출, 대출 승인).
 - delivery_scam: parcel held, address problem, customs or redelivery fee with a link (택배, 배송, 주소 불일치, 통관, Pos Laju, "your parcel could not be delivered", small redelivery fee from a postal or courier name).
 - family_impersonation: "Mum/Dad, it's me", screen broken, temporary or new phone (엄마 나야, 액정 깨졌어, 임시폰, 폰 고장), then money, gift cards (문화상품권, Google Play), an ID or card photo, a remote app, or paying someone "for me". Text-only, can't call. English: "Hi Mum, this is my new number", "lost my phone, can you pay a bill for me".
-- account_takeover: a known contact suddenly asks to borrow money briefly, sends a "statement of account" or file to open on a computer, or asks you to forward it to finance; also fake tech support ("your computer has a virus, call Microsoft", "your Netflix or Amazon account is suspended") that wants remote access or payment.
+- account_takeover: a known contact suddenly asks to borrow money briefly, sends a "statement of account" or file to open on a computer, or asks you to forward it to finance; also fake tech support or company alerts ("your computer has a virus, call Microsoft", "your Netflix or Amazon account is suspended") that want remote access or payment: these are account_takeover, not government.
 - investment_scam: guaranteed or very high returns, stock or coin tip rooms (리딩방, 고수익, 원금 보장, 코인, 공모주), "join our group", crypto recovery services that promise to get lost money back for a fee.
 - job_scam: easy part-time work, paid likes or reviews, tasks that first need a deposit (부업, 알바, 재택).
 - romance: an online friend (often abroad: soldier, doctor, engineer) asking for money for travel, customs or an emergency.
@@ -92,11 +92,13 @@ Never lower the level because the sender is a saved contact: accounts get hacked
 - asks_for: everything the message asks for; ["none"] if nothing.
 - In every text field: never write the % sign, and never copy numbers, amounts, links, web addresses, phone or account numbers, codes or quotes from the message. Describe them in words instead ("promises very high monthly returns", "asks for a large transfer"). No probabilities. Never write "safe", "definitely" or "confirmed scam".`;
 
+const LANGUAGE = { ko: "Korean (한국어)", en: "English", ms: "Malay (Bahasa Melayu)" } as const;
+
 /** The user turn. The text is fenced; a fake closing tag inside it is neutralised. */
 export function userPrompt(r: AnalyzeRequest): string {
   const fenced = r.text.replaceAll(/<\/?untrusted_message>/gi, "[tag removed]");
   return [
-    `Locale: ${r.locale}`,
+    `Locale: ${r.locale}. Write explanation_for_user, recommended_verification and uncertainties in ${LANGUAGE[r.locale]}.`,
     `App: ${r.app}`,
     `Sender kind: ${r.sender_kind} (a saved contact can still be a hacked account)`,
     `On-device rule signals: ${r.rule_signals.join(", ") || "none"}`,
@@ -135,6 +137,8 @@ export function anthropicBody(r: AnalyzeRequest) {
     // Same prompt on every call: cached, so its length costs little and doesn't slow the reply.
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userPrompt(r) }],
+    // One-shot classification inside an 8 s budget: no thinking, low effort.
+    thinking: { type: "disabled" },
     output_config: { effort: "low", format: { type: "json_schema", schema: OUTPUT_SCHEMA } },
   };
 }
@@ -173,7 +177,10 @@ export function validateAssessment(raw: unknown, messageText: string): Assessmen
   if (shown.some((s) => numbersInMessage.some((n) => digits(s).includes(n)))) return null;
   // The guardian summary is stored in `cases`: it must not quote the message (no raw text in the DB).
   // Rather than throw away a good assessment, replace a quoting summary with one of our own words.
-  if (sharesLongRun(a.summary_for_guardian as string, messageText, 25)) {
+  // A quote = ~7 English words, or 12 Hangul characters (Korean is denser; the summary should be English anyway).
+  const summaryText = a.summary_for_guardian as string;
+  const hangul = (s: string) => s.replace(/[^가-힣]/g, "");
+  if (sharesLongRun(summaryText, messageText, 40) || sharesLongRun(hangul(summaryText), hangul(messageText), 12)) {
     a.summary_for_guardian = SAFE_SUMMARY[a.category as string] ?? SAFE_SUMMARY.other;
   }
 
