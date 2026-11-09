@@ -30,6 +30,8 @@ struct FamilyMember: Codable, Identifiable, Hashable {
     var phoneNumbers: [String]
     var paired: Bool
     var addedAt = Date()
+    /// Mum, Dad, Son… shown next to the name.
+    var relationship: String?
 
     /// Does a notification title belong to this person?
     func matches(sender: String) -> Bool {
@@ -67,7 +69,23 @@ final class FamilyStore: ObservableObject {
     private let membersKey = "familyMembers"
     private let keysKey = "familyKeys"
 
-    private init() { load() }
+    private init() {
+        load()
+        makeTwoWay()
+    }
+
+    /// Pairings made before family codes were two-way: give each side what the other already has.
+    private func makeTwoWay() {
+        var changed = false
+        for m in members where m.paired && !keys.contains(where: { $0.id == m.id }) {
+            keys.append(FamilyKey(id: m.id, protectedName: m.name, myName: "", color: m.color)); changed = true
+        }
+        for k in keys where !members.contains(where: { $0.id == k.id }) {
+            members.append(FamilyMember(id: k.id, name: k.protectedName, color: k.color,
+                                        contactNames: [k.protectedName], phoneNumbers: [], paired: true)); changed = true
+        }
+        if changed { save() }
+    }
 
     // MARK: Protected side
 
@@ -91,7 +109,26 @@ final class FamilyStore: ObservableObject {
                               secret: secret, invite: invite)
     }
 
-    func markPaired(_ id: UUID) { update(id) { $0.paired = true } }
+    /// Marks a member paired and gives this phone its own code for them (two-way family code).
+    func markPaired(_ id: UUID) {
+        update(id) { $0.paired = true }
+        if let m = member(id: id), !keys.contains(where: { $0.id == id }) {
+            keys.append(FamilyKey(id: id, protectedName: m.name, myName: "", color: m.color))
+            save()
+        }
+    }
+
+    /// The scanning side also adds the other person as a family member, sharing the same secret,
+    /// so messages from them get the same family-code check.
+    func addMemberFromPairing(_ p: PairingPayload) {
+        guard !members.contains(where: { $0.id == p.id }) else { return }
+        members.append(FamilyMember(id: p.id, name: p.protectedName, color: KittenColor(rawValue: p.color) ?? .green,
+                                    contactNames: [p.protectedName], phoneNumbers: [], paired: true))
+        save()
+    }
+
+    static let relationships = ["Mum", "Dad", "Son", "Daughter", "Wife", "Husband", "Sister", "Brother",
+                                "Grandma", "Grandpa", "Aunt", "Uncle", "Friend"]
 
     func update(_ id: UUID, _ change: (inout FamilyMember) -> Void) {
         guard let i = members.firstIndex(where: { $0.id == id }) else { return }
@@ -102,6 +139,7 @@ final class FamilyStore: ObservableObject {
     func remove(_ id: UUID) {
         SecretVault.delete(id: id)
         members.removeAll { $0.id == id }
+        keys.removeAll { $0.id == id }
         save()
     }
 

@@ -21,13 +21,14 @@ struct LookingOutSection: View {
                     .transition(.scale.combined(with: .opacity))
             }
 
-            ForEach(family.keys) { key in
+            // Keys for people already in my family list show as a Face ID button on their row.
+            ForEach(family.keys.filter { k in !family.members.contains { $0.id == k.id } }) { key in
                 Button { open(key) } label: { keyRow(key) }.buttonStyle(.plain)
             }
 
             if !compact {
                 if family.keys.isEmpty {
-                    Text("Scan the QR on a parent's Stead to look out for them.")
+                    Text("Joining someone's family? Scan the QR on their Stead.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
                 }
                 Button { scanning = true } label: { Label("Scan family QR", systemImage: "qrcode.viewfinder") }
@@ -37,7 +38,7 @@ struct LookingOutSection: View {
                     .frame(maxWidth: .infinity)
             }
 
-            if !circle.memberships.filter({ $0.pairingID != nil }).isEmpty { CaseList(onlyOpen: compact) }
+            if !circle.memberships.isEmpty { CaseList(onlyOpen: compact) }
         }
         .sheet(isPresented: $scanning) { QRScannerSheet { handle($0) } }
         .sheet(isPresented: $pasting) { NavigationStack { PastePairingView { handle($0) } } }
@@ -67,6 +68,8 @@ struct LookingOutSection: View {
     private func handle(_ text: String) {
         guard let payload = PairingPayload.decode(text) else { return }
         family.addKey(from: payload, myName: myName)
+        // Two-way: they can check my code, and I can check theirs (same secret, same pairing id).
+        family.addMemberFromPairing(payload)
         scanning = false; pasting = false
         withAnimation(.spring) { justPaired = payload.protectedName }
         guard let invite = payload.invite else { return }

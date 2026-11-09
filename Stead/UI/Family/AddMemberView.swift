@@ -10,6 +10,7 @@ struct AddMemberView: View {
     @State private var name = ""
     @State private var color: KittenColor = FamilyStore.shared.nextColor
     @State private var linked: ContactPicker.Picked?
+    @State private var relationship: String?
     @State private var showPicker = false
     @State private var payload: PairingPayload?
 
@@ -45,6 +46,21 @@ struct AddMemberView: View {
                     TextField("", text: $name, prompt: Text("e.g. Daniel").foregroundStyle(Theme.muted))
                         .font(.title3).padding(16)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16))
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("They are your…").font(.headline)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(FamilyStore.relationships, id: \.self) { r in
+                                Button(r) { relationship = r }
+                                    .font(.headline)
+                                    .padding(.horizontal, 14).padding(.vertical, 9)
+                                    .foregroundStyle(relationship == r ? .black : Theme.text)
+                                    .background(relationship == r ? color.color : Theme.surface, in: Capsule())
+                            }
+                        }
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -88,7 +104,8 @@ struct AddMemberView: View {
                     Task {
                         // A fresh single-use invite rides in the QR so scanning also joins the circle.
                         let invite = await CircleService.shared.inviteForPairing(myName: myName)
-                        payload = family.addMember(name: name.trimmingCharacters(in: .whitespaces), color: color,
+                        defer { if let id = payload?.id { family.update(id) { $0.relationship = relationship } } }
+                    payload = family.addMember(name: name.trimmingCharacters(in: .whitespaces), color: color,
                                                    contactNames: linked?.names ?? [], phones: linked?.phones ?? [],
                                                    protectedName: myName.isEmpty ? "Family" : myName, invite: invite)
                     }

@@ -7,8 +7,7 @@ struct CaseList: View {
 
     /// Only circles I joined to look out for someone (not my own circle, where I'm the one protected).
     private var mine: [CaseRow] {
-        let watching = Set(circle.memberships.filter { $0.pairingID != nil }.map(\.circleID))
-        return circle.cases.filter { watching.contains($0.circle_id) }
+        circle.othersCases
     }
     private var open: [CaseRow] { mine.filter { $0.status != "resolved" } }
     private var recent: [CaseRow] { onlyOpen ? [] : Array(mine.filter { $0.status == "resolved" }.prefix(3)) }
@@ -39,7 +38,7 @@ private struct CaseCard: View {
 
     private var level: Level { Level(rawValue: item.level) ?? .beCareful }
     private var person: String { circle.name(of: item.protected_member_id) ?? "Family" }
-    private var me: UUID? { circle.memberships.first { $0.circleID == item.circle_id }?.memberID }
+    private var me: UUID? { circle.myMemberID(in: item.circle_id) }
     private var asksMe: Bool {
         item.kind == "verify_identity" && item.verify_answer == nil
             && (item.verify_target_member_id == nil || item.verify_target_member_id == me)

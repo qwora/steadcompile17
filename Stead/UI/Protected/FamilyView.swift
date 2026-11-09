@@ -10,6 +10,7 @@ struct FamilyView: View {
     @State private var showingQR: PairingPayload?
     @State private var linkingMember: UUID?
     @State private var pickerOpen = false
+    @State private var openKey: FamilyKey?
 
     private var shared: [MessageEvent] { store.events.filter { $0.familyStatus != .none } }
 
@@ -23,7 +24,7 @@ struct FamilyView: View {
                 Button { adding = true } label: { Label("Add family member", systemImage: "person.badge.plus") }
                     .buttonStyle(PrimaryButtonStyle())
 
-                SectionTitle(text: "You look out for")
+                SectionTitle(text: "Family alerts")
                 LookingOutSection()
 
                 Card {
@@ -45,6 +46,7 @@ struct FamilyView: View {
         .background(Theme.background)
         .navigationTitle("Family")
         .sheet(isPresented: $adding) { NavigationStack { AddMemberView() } }
+        .fullScreenCover(item: $openKey) { key in CodeView(key: key) }
         .sheet(item: $showingQR) { p in NavigationStack { PairingQRView(payload: p) { showingQR = nil } } }
         .background {
             ContactPicker(isPresented: $pickerOpen) { picked in
@@ -58,6 +60,10 @@ struct FamilyView: View {
         }
     }
 
+    private func showCode(_ key: FamilyKey) {
+        Task { if await OwnerCheck.confirm(reason: "Show your family code for \(key.protectedName)") { openKey = key } }
+    }
+
     private var circleHeader: some View {
         VStack(spacing: 12) {
             HStack(spacing: -14) {
@@ -67,8 +73,8 @@ struct FamilyView: View {
             Text(family.members.isEmpty ? "Your family circle" : "\(myName.isEmpty ? "You" : myName) + \(family.members.count)")
                 .font(.title2.bold())
             Text(family.members.isEmpty
-                 ? "Add people you trust. They help you check messages."
-                 : "They help you check messages.")
+                 ? "Add your family. You all look out for each other."
+                 : "You all look out for each other.")
                 .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
         }
         .padding(.vertical, 10)
@@ -79,7 +85,7 @@ struct FamilyView: View {
             HStack(spacing: 14) {
                 KittenView(color: m.color.color, mood: m.paired ? .watching : .sleeping, size: 52)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(m.name).font(.headline)
+                    Text(m.relationship.map { "\(m.name) · \($0)" } ?? m.name).font(.headline)
                     Label(m.paired ? "Family code set up" : "Not paired yet",
                           systemImage: m.paired ? "lock.shield.fill" : "qrcode")
                         .font(.caption.weight(.semibold))
@@ -90,7 +96,18 @@ struct FamilyView: View {
                     }
                 }
                 Spacer()
+                if m.paired, let key = family.keys.first(where: { $0.id == m.id }) {
+                    Button { showCode(key) } label: {
+                        Image(systemName: "faceid").font(.title2).foregroundStyle(m.color.color)
+                    }
+                    .accessibilityLabel("Show my family code for \(m.name)")
+                }
                 Menu {
+                    Menu {
+                        ForEach(FamilyStore.relationships, id: \.self) { r in
+                            Button(r) { family.update(m.id) { $0.relationship = r } }
+                        }
+                    } label: { Label("Relationship", systemImage: "person.2") }
                     Button {
                         Task {
                             let invite = await CircleService.shared.inviteForPairing(myName: myName)

@@ -103,8 +103,7 @@ struct HomeView: View {
 
     /// An open case from someone I look out for.
     private var familyNeedsYou: Bool {
-        let watching = Set(circle.memberships.filter { $0.pairingID != nil }.map(\.circleID))
-        return circle.cases.contains { watching.contains($0.circle_id) && $0.status != "resolved" }
+        circle.othersCases.contains { $0.status != "resolved" && $0.verify_answer == nil }
     }
 
     private var heroTitle: String {

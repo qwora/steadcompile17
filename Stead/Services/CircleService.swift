@@ -76,6 +76,13 @@ final class CircleService: ObservableObject {
     }
 
     var protectedMembership: Membership? { memberships.first { $0.pairingID == nil } }
+    /// The family circle this phone shares warnings into. Everyone protects everyone, so a member
+    /// who joined by QR uses that same circle (no second, one-way circle).
+    var familyMembership: Membership? { protectedMembership ?? memberships.first }
+    /// My member id in a given circle.
+    func myMemberID(in circle: UUID) -> UUID? { memberships.first { $0.circleID == circle }?.memberID }
+    /// Cases from someone else in my circles (the ones I can help with).
+    var othersCases: [CaseRow] { cases.filter { $0.protected_member_id != myMemberID(in: $0.circle_id) } }
 
     func membership(forPairing id: UUID) -> Membership? { memberships.first { $0.pairingID == id } }
 
@@ -86,7 +93,7 @@ final class CircleService: ObservableObject {
     func inviteForPairing(myName: String) async -> String? {
         guard let client = await signedIn() else { return nil }
         do {
-            if let m = protectedMembership {
+            if let m = familyMembership {
                 return try await client.rpc("refresh_invite_code", params: ["p_circle": m.circleID.uuidString]).execute().value
             }
             struct Created: Decodable { let circle_id: UUID; let invite_code: String; let member_id: UUID }
@@ -104,7 +111,7 @@ final class CircleService: ObservableObject {
 
     /// Shares a warning with the family. `requested` = she tapped "Ask family" (always pushes).
     func share(_ event: MessageEvent, requested: Bool) async {
-        guard let m = protectedMembership, event.caseID == nil, await signedIn() != nil else { return }
+        guard let m = familyMembership, event.caseID == nil, await signedIn() != nil else { return }
         if members.isEmpty { await fetchAll() }
         let a = event.assessment
         let isFamily = event.familyCheck != nil || a?.category == "family_impersonation"
@@ -124,7 +131,7 @@ final class CircleService: ObservableObject {
     /// Result of the on-phone family code check. A wrong code is the strongest sign of impersonation:
     /// it becomes a Level 3 case so every guardian gets the urgent push.
     func reportFamilyCode(eventID: UUID, ok: Bool) async {
-        guard let m = protectedMembership, let event = EventStore.shared.event(id: eventID),
+        guard let m = familyMembership, let event = EventStore.shared.event(id: eventID),
               let client = await signedIn() else { return }
         if ok {
             guard let caseID = event.caseID else { return }
@@ -145,9 +152,11 @@ final class CircleService: ObservableObject {
     }
 
     func syncConsent() async {
-        guard let m = protectedMembership, let client = await signedIn() else { return }
-        _ = try? await client.from("members").update(["auto_share": Settings.autoShareSerious])
-            .eq("id", value: m.memberID.uuidString).execute()
+        guard let client = await signedIn() else { return }
+        for m in memberships {
+            _ = try? await client.from("members").update(["auto_share": Settings.autoShareSerious])
+                .eq("id", value: m.memberID.uuidString).execute()
+        }
     }
 
     /// The server member id of a family member added on this phone. Matched by name, because the
@@ -157,7 +166,8 @@ final class CircleService: ObservableObject {
     func serverMemberID(forLocal id: UUID) -> UUID? {
         guard let name = FamilyStore.shared.member(id: id)?.name else { return nil }
         let wanted = FamilyStore.normalise(name)
-        return members.first { $0.role == "guardian" && FamilyStore.normalise($0.display_name) == wanted }?.id
+        let mine = Set(memberships.map(\.memberID))
+        return members.first { !mine.contains($0.id) && FamilyStore.normalise($0.display_name) == wanted }?.id
     }
 
     // MARK: Guardian side
@@ -172,6 +182,7 @@ final class CircleService: ObservableObject {
                 .execute().value
             guard let j = rows.first else { return false } // zero rows = used, wrong or expired code
             add(Membership(circleID: j.circle_id, memberID: j.member_id, pairingID: pairingID))
+            await syncConsent()
             await registerDevice()
             await refresh()
             return true
@@ -270,7 +281,7 @@ final class CircleService: ObservableObject {
 
     /// Protected phone: show what the family did on the matching local message.
     private func applyToEvents() {
-        guard protectedMembership != nil else { return }
+        guard familyMembership != nil else { return }
         let store = EventStore.shared
         for c in cases {
             guard let old = store.events.first(where: { $0.caseID == c.id }) else { continue }
@@ -303,7 +314,7 @@ final class CircleService: ObservableObject {
 
     /// Protected phone: a family member counts as paired once they've joined the circle.
     private func markPairedMembers() {
-        guard protectedMembership != nil else { return }
+        guard familyMembership != nil else { return }
         for m in FamilyStore.shared.members where !m.paired && serverMemberID(forLocal: m.id) != nil {
             FamilyStore.shared.markPaired(m.id)
         }

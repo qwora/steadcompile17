@@ -19,7 +19,7 @@ export type CaseEvent = typeof EVENTS[number];
 /**
  * Level 0: never a case. Level 1: push only if the person tapped "Ask family".
  * Level 2: push if they asked, or if they consented to automatic sharing (members.auto_share).
- * Level 3: always an urgent push. Guardian actions push back to the protected person.
+ * Level 3: always an urgent push. Everyone else in the circle is told; their actions push back to the person.
  */
 export function planPush(c: CaseRow, event: CaseEvent, members: MemberRow[]): PushPlan | null {
   const byId = new Map(members.map((m) => [m.id, m]));
@@ -31,9 +31,11 @@ export function planPush(c: CaseRow, event: CaseEvent, members: MemberRow[]): Pu
     if (c.level < 1) return null;
     const shared = c.level >= 3 || c.requested_by_user || (c.level === 2 && person.auto_share);
     if (!shared) return null;
-    const guardians = members.filter((m) => m.role === "guardian").map((m) => m.id);
+    // Everyone protects everyone: every other member of the circle is told.
+    const guardians = members.filter((m) => m.id !== c.protected_member_id).map((m) => m.id);
     if (c.kind === "verify_identity") {
-      const target = c.verify_target_member_id && byId.get(c.verify_target_member_id)?.role === "guardian"
+      const target = c.verify_target_member_id && c.verify_target_member_id !== c.protected_member_id
+        && byId.has(c.verify_target_member_id)
         ? [c.verify_target_member_id] : guardians;
       return { recipients: target, urgent: c.level >= 3, title: "STEAD — Was this you?",
         body: `Someone messaging ${name} says they're family. Open STEAD to answer.` };
