@@ -210,7 +210,7 @@ Recovery (instead of 3 s polling): refetch `cases where circle_id = … order by
 |---|---|---|
 | Function unit tests (21): validation, prompt fencing, 401/502/504 paths, no text in logs, push rules, consent, dedupe, dead-token removal, ES256 JWT | `deno test --allow-env supabase/functions` | nothing |
 | Authorization (RLS/RPC) test, rolls back | `psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/authorization_test.sql` | local (`npx supabase start`) or real DB |
-| Live AI eval, 8 cases from the brief | `SUPABASE_URL=… SUPABASE_ANON_KEY=… deno run --allow-net --allow-env supabase/functions/analyze/eval.ts` | deployed `analyze` + Anthropic key |
+| Live AI eval, 19 cases (brief + Korean/Malay playbooks + genuine messages) | `SUPABASE_URL=… SUPABASE_ANON_KEY=… deno run --allow-net --allow-env supabase/functions/analyze/eval.ts` | deployed `analyze` + Anthropic key |
 | Real push | Install a debug build on a guardian iPhone, register, create a Level 3 case from the protected phone | APNs key + device |
 
 Use `.example` domains in test messages, never real scam links.
