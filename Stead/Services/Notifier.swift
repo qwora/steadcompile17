@@ -51,6 +51,11 @@ enum Notifier {
         post(event, title: title, body: body, level: event.level, sound: event.level >= .beCareful)
     }
 
+    /// Removes this message's notification (used when the final level is below "Warn me when").
+    static func clear(_ event: MessageEvent) {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [event.id.uuidString])
+    }
+
     /// Quiet notice for normal messages, only when the user turned on "Show every check".
     static func quiet(_ event: MessageEvent) {
         post(event, title: "Stead · Checked", body: "Message from \(event.senderLabel) looks normal.", level: .normal, sound: false)

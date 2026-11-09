@@ -10,8 +10,8 @@ struct RootView: View {
     var body: some View {
         Group {
             switch AppMode(rawValue: modeRaw) {
-            case .protected: ProtectedTabs()
-            case .guardian: GuardianHomeView()
+            // Everyone is protected. Looking out for family is an extra section, not a different app.
+            case .protected, .guardian: ProtectedTabs()
             case nil: OnboardingView()
             }
         }

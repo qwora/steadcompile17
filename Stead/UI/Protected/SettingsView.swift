@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("mode") private var modeRaw = ""
     @AppStorage("showEveryCheck") private var showEveryCheck = false
     @AppStorage("autoShareSerious") private var autoShare = true
+    @AppStorage("alertFrom") private var alertFrom = Level.worthALook.rawValue
     @State private var confirmClear = false
 
     var body: some View {
@@ -15,6 +16,17 @@ struct SettingsView: View {
             }
             Section {
                 NavigationLink { SetupGuideView() } label: { Label("Set up automatic checks", systemImage: "bolt.badge.automatic.fill") }
+            }
+            Section {
+                Picker("Warn me when", selection: $alertFrom) {
+                    Text("Anything looks off").tag(Level.worthALook.rawValue)
+                    Text("Only when it's serious").tag(Level.beCareful.rawValue)
+                    Text("Only urgent (stop & call family)").tag(Level.urgent.rawValue)
+                }
+            } header: {
+                Text("Alerts")
+            } footer: {
+                Text("Stead still checks every message and keeps them in Activity. Family-code checks always alert you.")
             }
             Section {
                 Toggle("Tell my family when it's serious", isOn: $autoShare)

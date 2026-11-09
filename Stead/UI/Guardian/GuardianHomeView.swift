@@ -1,76 +1,56 @@
 import SwiftUI
 import VisionKit
 
-/// Family-member side: the people I look out for, and my family code for each, behind Face ID.
-struct GuardianHomeView: View {
+/// "You look out for": the people who paired with me, my family code for each (Face ID),
+/// and their live cases. Shown inside everyone's app: family members are protected too.
+struct LookingOutSection: View {
+    var compact = false
     @StateObject private var family = FamilyStore.shared
     @StateObject private var circle = CircleService.shared
     @AppStorage("displayName") private var myName = ""
-    @AppStorage("mode") private var modeRaw = ""
     @State private var scanning = false
     @State private var pasting = false
     @State private var openKey: FamilyKey?
     @State private var justPaired: String?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
-                    VStack(spacing: 10) {
-                        KittenView(color: Theme.blue, mood: family.keys.isEmpty ? .watching : .happy, size: 120)
-                        Text("Hi \(myName)").font(.largeTitle.bold())
-                        Text(family.keys.isEmpty
-                             ? "Pair with someone you look out for. You'll get a family code only you can open."
-                             : "If they ask, open your family code and read it to them.")
-                            .font(.title3).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-                    }
-                    .padding(.vertical, 10)
+        VStack(alignment: .leading, spacing: 14) {
+            if let justPaired {
+                Label("Paired with \(justPaired)", systemImage: "checkmark.seal.fill")
+                    .font(.headline).foregroundStyle(Theme.teal)
+                    .transition(.scale.combined(with: .opacity))
+            }
 
-                    if let justPaired {
-                        Label("Paired with \(justPaired)", systemImage: "checkmark.seal.fill")
-                            .font(.headline).foregroundStyle(Theme.teal)
-                            .transition(.scale.combined(with: .opacity))
-                    }
+            ForEach(family.keys) { key in
+                Button { open(key) } label: { keyRow(key) }.buttonStyle(.plain)
+            }
 
-                    ForEach(family.keys) { key in
-                        Button { open(key) } label: { keyRow(key) }.buttonStyle(.plain)
-                    }
-
-                    Button { scanning = true } label: { Label("Scan family QR", systemImage: "qrcode.viewfinder") }
-                        .buttonStyle(PrimaryButtonStyle(tint: Theme.blue))
-                    Button("Enter pairing code instead") { pasting = true }
+            if !compact {
+                if family.keys.isEmpty {
+                    Text("Look out for a parent or relative: scan the QR on their Stead. You'll see their warnings and get a family code only you can open.")
                         .font(.subheadline).foregroundStyle(Theme.muted)
-
-                    if circle.memberships.isEmpty {
-                        Card {
-                            Label("Live alerts", systemImage: "bell.badge.fill").font(.headline).foregroundStyle(Theme.blue)
-                            Text("Once you've scanned their QR, likely scams show up here and you can tell them \"I'm checking\".")
-                                .font(.subheadline).foregroundStyle(Theme.muted)
-                        }
-                    } else {
-                        CaseList()
-                    }
                 }
-                .padding(20)
+                Button { scanning = true } label: { Label("Scan family QR", systemImage: "qrcode.viewfinder") }
+                    .buttonStyle(PrimaryButtonStyle(tint: Theme.blue))
+                Button("Enter pairing code instead") { pasting = true }
+                    .font(.subheadline).foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity)
             }
-            .background(Theme.background)
-            .toolbar {
-                Menu { Button("Switch who this phone is for") { modeRaw = "" } } label: { Image(systemName: "gearshape.fill") }
-            }
-            .sheet(isPresented: $scanning) { QRScannerSheet { handle($0) } }
-            .sheet(isPresented: $pasting) { NavigationStack { PastePairingView { handle($0) } } }
-            .fullScreenCover(item: $openKey) { key in CodeView(key: key) }
-            .refreshable { await circle.refresh() }
+
+            if !circle.memberships.filter({ $0.pairingID != nil }).isEmpty { CaseList(onlyOpen: compact) }
         }
+        .sheet(isPresented: $scanning) { QRScannerSheet { handle($0) } }
+        .sheet(isPresented: $pasting) { NavigationStack { PastePairingView { handle($0) } } }
+        .fullScreenCover(item: $openKey) { key in CodeView(key: key) }
     }
 
     private func keyRow(_ key: FamilyKey) -> some View {
         Card(padding: 16) {
             HStack(spacing: 14) {
-                KittenView(color: key.color.color, mood: .watching, size: 56)
+                KittenView(color: key.color.color, mood: .watching, size: 52)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(key.protectedName).font(.title3.bold())
-                    Label("Family code · Face ID", systemImage: "faceid").font(.subheadline).foregroundStyle(Theme.muted)
+                    Label("Show my family code · Face ID", systemImage: "faceid").font(.subheadline).foregroundStyle(Theme.muted)
                 }
                 Spacer()
                 Image(systemName: "lock.fill").font(.title3).foregroundStyle(key.color.color)

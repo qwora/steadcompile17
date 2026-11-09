@@ -2,14 +2,20 @@ import SwiftUI
 
 /// Guardian side: live cases from the people I look out for (Realtime + push), newest first.
 struct CaseList: View {
+    var onlyOpen = false
     @StateObject private var circle = CircleService.shared
 
-    private var open: [CaseRow] { circle.cases.filter { $0.status != "resolved" } }
-    private var recent: [CaseRow] { Array(circle.cases.filter { $0.status == "resolved" }.prefix(3)) }
+    /// Only circles I joined to look out for someone (not my own circle, where I'm the one protected).
+    private var mine: [CaseRow] {
+        let watching = Set(circle.memberships.filter { $0.pairingID != nil }.map(\.circleID))
+        return circle.cases.filter { watching.contains($0.circle_id) }
+    }
+    private var open: [CaseRow] { mine.filter { $0.status != "resolved" } }
+    private var recent: [CaseRow] { onlyOpen ? [] : Array(mine.filter { $0.status == "resolved" }.prefix(3)) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if open.isEmpty {
+            if open.isEmpty && !onlyOpen {
                 Card {
                     Label("All quiet", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(Theme.teal)
                     Text("Nothing needs you right now. You'll get a notification if something does.")

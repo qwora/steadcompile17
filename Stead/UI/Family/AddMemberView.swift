@@ -21,12 +21,12 @@ struct AddMemberView: View {
         .navigationTitle(payload == nil ? "Add family" : "Pair \(name)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
-        .sheet(isPresented: $showPicker) {
-            ContactPicker { picked in
+        .background {
+            ContactPicker(isPresented: $showPicker) { picked in
                 linked = picked
                 if name.isEmpty { name = picked.names.first(where: { !$0.contains(" ") }) ?? picked.displayName }
             }
-            .ignoresSafeArea()
+            .frame(width: 0, height: 0)
         }
     }
 
@@ -71,7 +71,7 @@ struct AddMemberView: View {
                             Image(systemName: linked == nil ? "person.crop.circle.badge.plus" : "person.crop.circle.badge.checkmark")
                                 .font(.title2).foregroundStyle(linked == nil ? Theme.teal : color.color)
                             VStack(alignment: .leading) {
-                                Text(linked?.displayName ?? "Choose from Contacts").font(.headline).foregroundStyle(Theme.text)
+                                Text(linked?.displayName ?? "Choose from Contacts (pick all their numbers)").font(.headline).foregroundStyle(Theme.text)
                                 if let phones = linked?.phones, !phones.isEmpty {
                                     Text(phones.joined(separator: ", ")).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
                                 }

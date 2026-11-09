@@ -8,6 +8,8 @@ struct FamilyView: View {
     @AppStorage("displayName") private var myName = ""
     @State private var adding = false
     @State private var showingQR: PairingPayload?
+    @State private var linkingMember: UUID?
+    @State private var pickerOpen = false
 
     private var shared: [MessageEvent] { store.events.filter { $0.familyStatus != .none } }
 
@@ -20,6 +22,9 @@ struct FamilyView: View {
 
                 Button { adding = true } label: { Label("Add family member", systemImage: "person.badge.plus") }
                     .buttonStyle(PrimaryButtonStyle())
+
+                SectionTitle(text: "You look out for")
+                LookingOutSection()
 
                 Card {
                     Label("How the family code works", systemImage: "lock.shield.fill").font(.headline).foregroundStyle(Theme.teal)
@@ -41,6 +46,16 @@ struct FamilyView: View {
         .navigationTitle("Family")
         .sheet(isPresented: $adding) { NavigationStack { AddMemberView() } }
         .sheet(item: $showingQR) { p in NavigationStack { PairingQRView(payload: p) { showingQR = nil } } }
+        .background {
+            ContactPicker(isPresented: $pickerOpen) { picked in
+                guard let id = linkingMember else { return }
+                family.update(id) { m in
+                    m.contactNames = Array(Set(m.contactNames + picked.names))
+                    m.phoneNumbers = Array(Set(m.phoneNumbers + picked.phones))
+                }
+            }
+            .frame(width: 0, height: 0)
+        }
     }
 
     private var circleHeader: some View {
@@ -82,6 +97,9 @@ struct FamilyView: View {
                             showingQR = family.payload(for: m, protectedName: myName, invite: invite)
                         }
                     } label: { Label("Show pairing QR", systemImage: "qrcode") }
+                    Button { linkingMember = m.id; pickerOpen = true } label: {
+                        Label("Link contacts", systemImage: "person.crop.circle.badge.plus")
+                    }
                     Button(role: .destructive) { family.remove(m.id) } label: { Label("Remove", systemImage: "trash") }
                 } label: {
                     Image(systemName: "ellipsis.circle").font(.title2).foregroundStyle(Theme.muted)

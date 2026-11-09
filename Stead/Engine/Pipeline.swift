@@ -43,7 +43,7 @@ enum Pipeline {
             return event
         default:
             // A family check is urgent on its own: tell her before the AI answers.
-            if family.needed { Notifier.result(event) } else { Notifier.checking(event) }
+            if family.needed { Notifier.result(event) } else if Settings.alertFrom <= .worthALook { Notifier.checking(event) }
         }
 
         let assessment: Assessment
@@ -59,7 +59,10 @@ enum Pipeline {
         event.stage = .done
         store.upsert(event)
 
-        if !family.needed { Notifier.result(event) }
+        if !family.needed {
+            if event.level >= Settings.alertFrom { Notifier.result(event) }
+            else { Notifier.clear(event) }  // replace the "taking a closer look" notice quietly
+        }
         await FamilyBridge.escalate(event)
         return store.event(id: event.id) ?? event
     }
@@ -98,6 +101,11 @@ enum Settings {
     static var showEveryCheck: Bool {
         get { UserDefaults.standard.bool(forKey: "showEveryCheck") }
         set { UserDefaults.standard.set(newValue, forKey: "showEveryCheck") }
+    }
+    /// "Warn me when": the lowest level that gets a notification. Family-code checks always notify.
+    static var alertFrom: Level {
+        get { Level(rawValue: UserDefaults.standard.object(forKey: "alertFrom") as? Int ?? Level.worthALook.rawValue) ?? .worthALook }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "alertFrom") }
     }
     static var autoShareSerious: Bool {
         get { UserDefaults.standard.object(forKey: "autoShareSerious") as? Bool ?? true }

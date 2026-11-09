@@ -68,7 +68,7 @@ struct OnboardingView: View {
             ChoiceCard(selected: chosen == .protected, color: Theme.teal, mood: .watching,
                        title: "Me", detail: "Check my messages and warn me about scams.") { chosen = .protected }
             ChoiceCard(selected: chosen == .guardian, color: Theme.blue, mood: .happy,
-                       title: "Someone in my family", detail: "I look out for a parent or relative.") { chosen = .guardian }
+                       title: "Me, and I look out for family", detail: "Stead protects me too, and I can help a parent or relative.") { chosen = .guardian }
             Spacer()
             Button("Continue") { step = 2; nameFocused = true }.buttonStyle(PrimaryButtonStyle())
         }
@@ -95,15 +95,13 @@ struct OnboardingView: View {
 
     private var consent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(chosen == .protected ? "How Stead protects you" : "How Stead keeps them safe").font(.largeTitle.bold())
+            Text("How Stead protects you").font(.largeTitle.bold())
             VStack(alignment: .leading, spacing: 14) {
                 Promise(icon: "iphone", text: "Normal messages stay on this phone.")
                 Promise(icon: "sparkles", text: "Only messages with warning signs get a closer AI look.")
-                Promise(icon: "person.2.fill", text: chosen == .protected
-                        ? "Family sees a short summary, never your chats."
-                        : "You see a short summary, never their chats.")
+                Promise(icon: "person.2.fill", text: "Family sees a short summary, never your chats.")
             }
-            if chosen == .protected {
+            Group {
                 Card {
                     Toggle(isOn: $autoShare) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -116,7 +114,7 @@ struct OnboardingView: View {
                 }
             }
             Spacer()
-            Button(chosen == .protected ? "Allow alerts and finish" : "Finish") { finish() }
+            Button("Allow alerts and finish") { finish() }
                 .buttonStyle(PrimaryButtonStyle())
         }
     }
@@ -129,6 +127,8 @@ struct OnboardingView: View {
             Settings.autoShareSerious = autoShare
             displayName = name.trimmingCharacters(in: .whitespaces)
             modeRaw = chosen.rawValue
+            // Family helpers start on the Family tab, where they scan the QR.
+            if chosen == .guardian { Router.shared.tab = .family }
         }
     }
 }

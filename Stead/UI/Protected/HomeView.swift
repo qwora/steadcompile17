@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var store: EventStore
     @EnvironmentObject private var router: Router
+    @StateObject private var circle = CircleService.shared
     @AppStorage("displayName") private var displayName = ""
     @State private var showCheck = false
     @State private var showGuide = false
@@ -18,6 +19,10 @@ struct HomeView: View {
                 header
                 hero
                 stats
+                if familyNeedsYou {
+                    SectionTitle(text: "Family needs you")
+                    LookingOutSection(compact: true)
+                }
                 if !hasAutomation { setupCard }
                 if !warnings.isEmpty {
                     SectionTitle(text: "Needs a look")
@@ -94,6 +99,12 @@ struct HomeView: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    /// An open case from someone I look out for.
+    private var familyNeedsYou: Bool {
+        let watching = Set(circle.memberships.filter { $0.pairingID != nil }.map(\.circleID))
+        return circle.cases.contains { watching.contains($0.circle_id) && $0.status != "resolved" }
     }
 
     private var heroTitle: String {
