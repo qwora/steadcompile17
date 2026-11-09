@@ -24,6 +24,7 @@ struct MessageCheckView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header(event)
                 messageBubble(event)
+                if event.familyCheck != nil { FamilyCodeCheckCard(event: event) }
 
                 if event.stage == .checking {
                     Card {
@@ -57,9 +58,7 @@ struct MessageCheckView: View {
             KittenView(mood: event.stage == .checking ? .looking : event.level.kittenMood, size: 78, veilColor: event.level.color)
             VStack(alignment: .leading, spacing: 8) {
                 if event.stage == .done { LevelPill(level: event.level, large: true) }
-                Text(event.level == .urgent && event.thread.codeAfterWarning
-                     ? "A code arrived right after a suspicious message"
-                     : (event.assessment?.headline ?? (event.isWarning ? "Warning signs found" : "Looks normal")))
+                Text(headline(event))
                     .font(.title2.bold())
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -112,9 +111,12 @@ struct MessageCheckView: View {
             if !event.rules.signals.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(event.rules.signals) { s in
-                        Label(s.label, systemImage: "exclamationmark.circle.fill")
-                            .font(.subheadline).foregroundStyle(Theme.text)
-                            .symbolRenderingMode(.palette).foregroundStyle(event.level.color, Theme.text)
+                        Label {
+                            Text(s.label).foregroundStyle(Theme.text)
+                        } icon: {
+                            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(event.level.color)
+                        }
+                        .font(.subheadline)
                     }
                 }
                 .padding(.top, 4)
@@ -172,6 +174,19 @@ struct MessageCheckView: View {
             }
         }
         .padding(.top, 6)
+    }
+
+    private func headline(_ event: MessageEvent) -> String {
+        if event.familyCheck != nil {
+            let name = event.familyMemberID.flatMap { FamilyStore.shared.member(id: $0)?.name }
+            switch event.familyCheck {
+            case .verified: return "Checked: this is really \(name ?? "family")"
+            case .failed: return "This may not be \(name ?? "who they say")"
+            default: return name.map { "\($0) is asking for something" } ?? "Someone says they're family"
+            }
+        }
+        if event.level == .urgent && event.thread.codeAfterWarning { return "A code arrived right after a suspicious message" }
+        return event.assessment?.headline ?? (event.isWarning ? "Warning signs found" : "Looks normal")
     }
 
     private func familyDetail(_ status: MessageEvent.FamilyStatus) -> String {

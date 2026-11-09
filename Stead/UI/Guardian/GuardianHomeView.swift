@@ -1,26 +1,49 @@
 import SwiftUI
+import VisionKit
 
-/// Guardian side. Phase 3 replaces the placeholder with the live case list from Supabase.
+/// Family-member side: the people I look out for, and my family code for each, behind Face ID.
 struct GuardianHomeView: View {
-    @AppStorage("displayName") private var displayName = ""
+    @StateObject private var family = FamilyStore.shared
+    @AppStorage("displayName") private var myName = ""
     @AppStorage("mode") private var modeRaw = ""
+    @State private var scanning = false
+    @State private var pasting = false
+    @State private var openKey: FamilyKey?
+    @State private var justPaired: String?
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    KittenView(color: Theme.blue, mood: .watching, size: 130).padding(.top, 30)
-                    Text("Hi \(displayName)").font(.largeTitle.bold())
-                    Text("When someone you look out for gets a likely scam, it shows up here and you can tell them \"I'm checking\".")
-                        .font(.title3).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                VStack(spacing: 18) {
+                    VStack(spacing: 10) {
+                        KittenView(color: Theme.blue, mood: family.keys.isEmpty ? .watching : .happy, size: 120)
+                        Text("Hi \(myName)").font(.largeTitle.bold())
+                        Text(family.keys.isEmpty
+                             ? "Pair with someone you look out for. You'll get a family code only you can open."
+                             : "If they ask, open your family code and read it to them.")
+                            .font(.title3).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 10)
+
+                    if let justPaired {
+                        Label("Paired with \(justPaired)", systemImage: "checkmark.seal.fill")
+                            .font(.headline).foregroundStyle(Theme.teal)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+
+                    ForEach(family.keys) { key in
+                        Button { open(key) } label: { keyRow(key) }.buttonStyle(.plain)
+                    }
+
+                    Button { scanning = true } label: { Label("Scan family QR", systemImage: "qrcode.viewfinder") }
+                        .buttonStyle(PrimaryButtonStyle(tint: Theme.blue))
+                    Button("Enter pairing code instead") { pasting = true }
+                        .font(.subheadline).foregroundStyle(Theme.muted)
+
                     Card {
-                        Text("Join a family circle").font(.headline)
-                        Text("Ask them for the 6-digit code in their Stead app.").foregroundStyle(Theme.muted)
-                        Button("Enter code") {}.buttonStyle(PrimaryButtonStyle(tint: Theme.blue))
-                            .disabled(!Config.isBackendConfigured).opacity(Config.isBackendConfigured ? 1 : 0.5)
-                        if !Config.isBackendConfigured {
-                            Label("Connects once the server is set up.", systemImage: "clock").font(.footnote).foregroundStyle(Theme.muted)
-                        }
+                        Label("Coming next: live alerts", systemImage: "bell.badge.fill").font(.headline).foregroundStyle(Theme.blue)
+                        Text("When they get a likely scam, you'll see it here and can tell them \"I'm checking\".")
+                            .font(.subheadline).foregroundStyle(Theme.muted)
                     }
                 }
                 .padding(20)
@@ -29,6 +52,159 @@ struct GuardianHomeView: View {
             .toolbar {
                 Menu { Button("Switch who this phone is for") { modeRaw = "" } } label: { Image(systemName: "gearshape.fill") }
             }
+            .sheet(isPresented: $scanning) { QRScannerSheet { handle($0) } }
+            .sheet(isPresented: $pasting) { NavigationStack { PastePairingView { handle($0) } } }
+            .fullScreenCover(item: $openKey) { key in CodeView(key: key) }
+        }
+    }
+
+    private func keyRow(_ key: FamilyKey) -> some View {
+        Card(padding: 16) {
+            HStack(spacing: 14) {
+                KittenView(color: key.color.color, mood: .watching, size: 56)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(key.protectedName).font(.title3.bold())
+                    Label("Family code · Face ID", systemImage: "faceid").font(.subheadline).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+                Image(systemName: "lock.fill").font(.title3).foregroundStyle(key.color.color)
+            }
+        }
+    }
+
+    private func open(_ key: FamilyKey) {
+        Task {
+            if await OwnerCheck.confirm(reason: "Show your family code for \(key.protectedName)") { openKey = key }
+        }
+    }
+
+    private func handle(_ text: String) {
+        guard let payload = PairingPayload.decode(text) else { return }
+        family.addKey(from: payload, myName: myName)
+        scanning = false; pasting = false
+        withAnimation(.spring) { justPaired = payload.protectedName }
+    }
+}
+
+/// Full-screen rotating code with a countdown ring. Hidden again when the app leaves the screen.
+struct CodeView: View {
+    let key: FamilyKey
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var phase
+    @StateObject private var family = FamilyStore.shared
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let code = family.currentCode(for: key) ?? "------"
+            let left = FamilyCode.secondsLeft(at: context.date)
+            VStack(spacing: 26) {
+                Spacer()
+                KittenView(color: key.color.color, mood: .happy, size: 110)
+                Text("Your family code for \(key.protectedName)").font(.title3).foregroundStyle(Theme.muted)
+                Text(FamilyCode.pretty(code))
+                    .font(.system(size: 64, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Theme.text)
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: code)
+                    .accessibilityLabel(code.map(String.init).joined(separator: " "))
+                ZStack {
+                    Circle().stroke(Theme.surfaceRaised, lineWidth: 6)
+                    Circle().trim(from: 0, to: CGFloat(left) / CGFloat(FamilyCode.step))
+                        .stroke(key.color.color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 1), value: left)
+                    Text("\(left)s").font(.headline.monospacedDigit())
+                }
+                .frame(width: 70, height: 70)
+                Text("Read it to \(key.protectedName), ideally on a call. Never type it into a link.")
+                    .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                Spacer()
+                Button("Hide code") { dismiss() }.buttonStyle(PrimaryButtonStyle(tint: key.color.color))
+            }
+            .padding(28)
+        }
+        .background(Theme.background.ignoresSafeArea())
+        .onChange(of: phase) { _, p in if p != .active { dismiss() } }
+    }
+}
+
+/// Camera QR scanner (VisionKit). Falls back to a message when the camera isn't available.
+struct QRScannerSheet: View {
+    let onCode: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
+                    QRScanner(onCode: onCode).ignoresSafeArea()
+                } else {
+                    ContentUnavailableView("Camera not available", systemImage: "camera.slash",
+                                           description: Text("Use \"Enter pairing code instead\"."))
+                }
+            }
+            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+            .navigationTitle("Scan family QR").navigationBarTitleDisplayMode(.inline)
         }
     }
 }
+
+private struct QRScanner: UIViewControllerRepresentable {
+    let onCode: (String) -> Void
+
+    func makeUIViewController(context: Context) -> DataScannerViewController {
+        let vc = DataScannerViewController(recognizedDataTypes: [.barcode(symbologies: [.qr])], isHighlightingEnabled: true)
+        vc.delegate = context.coordinator
+        try? vc.startScanning()
+        return vc
+    }
+
+    func updateUIViewController(_ vc: DataScannerViewController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(onCode: onCode) }
+
+    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        let onCode: (String) -> Void
+        private var done = false
+        init(onCode: @escaping (String) -> Void) { self.onCode = onCode }
+
+        func dataScanner(_ scanner: DataScannerViewController, didAdd items: [RecognizedItem], allItems: [RecognizedItem]) {
+            guard !done else { return }
+            for item in items {
+                if case .barcode(let code) = item, let value = code.payloadStringValue, PairingPayload.decode(value) != nil {
+                    done = true
+                    scanner.stopScanning()
+                    onCode(value)
+                    return
+                }
+            }
+        }
+    }
+}
+
+struct PastePairingView: View {
+    let onCode: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var text = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Paste the pairing code from the other phone.").foregroundStyle(Theme.muted)
+            TextField("STEAD1:…", text: $text, axis: .vertical)
+                .lineLimit(3...6).font(.footnote.monospaced())
+                .padding(14).background(Theme.surface, in: RoundedRectangle(cornerRadius: 16))
+            if !text.isEmpty && PairingPayload.decode(text) == nil {
+                Text("That doesn't look like a Stead pairing code.").font(.footnote).foregroundStyle(Theme.amber)
+            }
+            Button("Pair") { onCode(text) }
+                .buttonStyle(PrimaryButtonStyle(tint: Theme.blue))
+                .disabled(PairingPayload.decode(text) == nil)
+            Spacer()
+        }
+        .padding(20)
+        .background(Theme.background)
+        .navigationTitle("Pairing code").navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+    }
+}
+
+extension FamilyKey {}

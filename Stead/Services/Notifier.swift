@@ -2,6 +2,7 @@ import Foundation
 import UserNotifications
 
 /// Local notifications. Each message gets one notification that is replaced as Stead learns more.
+@MainActor
 enum Notifier {
     static let warningCategory = "STEAD_WARNING"
     static let eventKey = "eventID"
@@ -23,6 +24,14 @@ enum Notifier {
         let headline = event.assessment?.headline ?? "Warning signs found"
         let title: String
         let body: String
+        if event.familyCheck == .needed {
+            let name = event.familyMemberID.flatMap { FamilyStore.shared.member(id: $0)?.name }
+            title = "Stead · Check the family code first"
+            body = name.map { "\($0) is asking for something. Ask \($0) for the family code before you send anything." }
+                ?? "Someone says they're family. Ask for their family code before you send anything."
+            post(event, title: title, body: body, level: .urgent, sound: true)
+            return
+        }
         switch event.level {
         case .normal:
             title = "Stead · Looks normal"

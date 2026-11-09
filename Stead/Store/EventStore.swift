@@ -6,6 +6,8 @@ struct MessageEvent: Codable, Identifiable, Hashable {
     enum Source: String, Codable { case shortcut, paste, sample }
     enum Stage: String, Codable { case done, checking }
     enum FamilyStatus: String, Codable { case none, shared, checking, resolved }
+    /// "Ask for their family code" state, for messages that claim to be family and ask for something.
+    enum FamilyCheck: String, Codable { case needed, verified, failed }
 
     var id = UUID()
     var receivedAt: Date
@@ -22,6 +24,8 @@ struct MessageEvent: Codable, Identifiable, Hashable {
     var familyStatus: FamilyStatus = .none
     var familyNote: String?
     var dismissedByUser = false
+    var familyMemberID: UUID?
+    var familyCheck: FamilyCheck?
 
     var appLabel: String { app.isEmpty ? "Unknown app" : app }
     var senderLabel: String { sender.isEmpty ? "Unknown sender" : sender }

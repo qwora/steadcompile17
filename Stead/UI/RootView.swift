@@ -56,6 +56,12 @@ enum DebugSeed {
         let defaults = UserDefaults.standard
         guard defaults.bool(forKey: "seedSamples") else { return }
         EventStore.shared.clear()
+        // A paired demo family member, so the family-code check can be tried on one phone.
+        FamilyStore.shared.resetForDemo()
+        let payload = FamilyStore.shared.addMember(name: "Daniel", color: .blue, contactNames: ["Daniel"], phones: [],
+                                                   protectedName: "Mum")
+        FamilyStore.shared.markPaired(payload.id)
+        print("DEMO_CODE_SECRET", payload.encoded)
         var opened: UUID?
         let target = defaults.object(forKey: "openSample") as? Int
         for (i, s) in Samples.all.enumerated() {

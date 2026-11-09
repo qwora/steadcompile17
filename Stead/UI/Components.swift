@@ -84,6 +84,8 @@ enum Samples {
                body: "[국외발신] 도로 관리24: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다. https://sw.example/RJMkq"),
         Sample(label: "\"Mum, it's me\" new number", app: "WhatsApp", sender: "+60 11-2345 6789",
                body: "Mum it's me, my phone broke so this is my new number. Can you transfer RM2000 urgently? I'll pay you back tonight"),
+        Sample(label: "Hacked family account (Daniel)", app: "WhatsApp", sender: "Daniel",
+               body: "Mum urgent, can you transfer RM3000 to this account now? Don't call, I'm in a meeting. I'll explain later"),
         Sample(label: "Hacked friend's account", app: "WhatsApp", sender: "Cikgu Rahman",
                body: "Salam, please review the attached statement of account. Open it on a computer, it's not visible on mobile. Forward to your finance manager."),
         Sample(label: "Parcel fee", app: "Messages", sender: "+82 2-123-4567",

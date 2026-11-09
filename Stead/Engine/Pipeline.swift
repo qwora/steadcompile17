@@ -16,18 +16,24 @@ enum Pipeline {
 
         let rules = RulesEngine.evaluate(app: app, title: sender, subtitle: subtitle, body: body)
         let thread = ThreadTracker.info(for: sender, app: app, rules: rules, at: date, history: store.events)
+        let family = FamilyCheckRule.evaluate(sender: sender, rules: rules)
 
         var event = MessageEvent(
             receivedAt: date, app: app, sender: sender, subtitle: subtitle, body: body, source: source,
             rules: rules, thread: thread, assessment: nil,
             level: Policy.level(rules: rules, assessment: nil, thread: thread),
-            stage: rules.decision == .analyze ? .checking : .done)
+            stage: rules.decision == .analyze || family.needed ? .checking : .done)
+        event.familyMemberID = family.memberID
+        if family.needed {
+            event.familyCheck = .needed
+            event.level = max(event.level, .beCareful)
+        }
         store.upsert(event)
 
         switch rules.decision {
         case .ignored:
             return event
-        case .skip:
+        case .skip where !family.needed:
             if event.level == .urgent {
                 Notifier.result(event)
                 FamilyBridge.escalate(event)
@@ -35,8 +41,9 @@ enum Pipeline {
                 Notifier.quiet(event)
             }
             return event
-        case .analyze:
-            Notifier.checking(event)
+        default:
+            // A family check is urgent on its own: tell her before the AI answers.
+            if family.needed { Notifier.result(event) } else { Notifier.checking(event) }
         }
 
         let assessment: Assessment
@@ -47,14 +54,43 @@ enum Pipeline {
         }
 
         event.assessment = assessment
-        event.level = Policy.level(rules: rules, assessment: assessment, thread: thread)
+        event.level = Policy.level(rules: rules.decision == .skip ? rules.forcingAnalyze : rules, assessment: assessment, thread: thread)
+        if family.needed { event.level = max(event.level, .beCareful) }
         event.stage = .done
         store.upsert(event)
 
-        Notifier.result(event)
+        if !family.needed { Notifier.result(event) }
         FamilyBridge.escalate(event)
         return store.event(id: event.id) ?? event
     }
+}
+
+/// Messages that come from (or claim to be) family and ask for money, a code, or secrecy.
+@MainActor
+enum FamilyCheckRule {
+    struct Result { var needed = false; var memberID: UUID? }
+
+    static let asks: Set<String> = ["payment", "credentials", "newphone", "nocall"]
+
+    static func evaluate(sender: String, rules: RuleResult) -> Result {
+        guard rules.decision != .ignored else { return Result() }
+        let ids = Set(rules.signals.map(\.id))
+        let members = FamilyStore.shared.members
+        // A linked family contact asking for money, a code, or not to call.
+        if let m = FamilyStore.shared.member(matching: sender), !ids.isDisjoint(with: asks) {
+            return Result(needed: true, memberID: m.id)
+        }
+        // A stranger claiming a new phone and asking for money: someone may be pretending to be family.
+        if !members.isEmpty, ids.contains("newphone"), !ids.isDisjoint(with: ["payment", "credentials", "nocall"]) {
+            return Result(needed: true, memberID: nil)
+        }
+        return Result()
+    }
+}
+
+extension RuleResult {
+    /// Same signals, treated as worth a look (used when a family check forces a closer look).
+    var forcingAnalyze: RuleResult { RuleResult(decision: .analyze, score: score, signals: signals, ignoreReason: nil) }
 }
 
 /// User preferences shared between the app and the background intent.

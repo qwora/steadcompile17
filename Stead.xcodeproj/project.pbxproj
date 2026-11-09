@@ -181,6 +181,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Stead;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Stead uses the camera to scan a family pairing QR code.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Stead uses Face ID so only you can see your family code.";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -210,6 +212,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Stead;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Stead uses the camera to scan a family pairing QR code.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Stead uses Face ID so only you can see your family code.";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
