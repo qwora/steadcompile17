@@ -185,6 +185,17 @@ do $$ begin
   assert (select count(*) from device_tokens) = 1, 'one row per token';
   assert (select environment from device_tokens) = 'production', 'token update applied';
 end $$;
+-- Another user presenting Daniel's token (reinstall / new session) takes it over.
+select pg_temp.login('00000000-0000-4000-8000-000000000003');
+do $$ begin
+  perform public.register_device(pg_temp.v('eve')::uuid, repeat('ab', 32), 'sandbox');
+  assert (select count(*) from device_tokens) = 1, 'new owner sees the moved token';
+end $$;
+select pg_temp.login('00000000-0000-4000-8000-000000000002');
+do $$ begin
+  assert (select count(*) from device_tokens) = 0, 'old owner lost the moved token';
+  perform public.register_device(pg_temp.v('dan')::uuid, repeat('ab', 32), 'production');
+end $$;
 select pg_temp.fails('register a token for someone else''s membership',
   format($q$select public.register_device(%L, %L, 'sandbox')$q$, pg_temp.v('mum'), repeat('cd', 32)));
 select pg_temp.fails('malformed token', format($q$select public.register_device(%L, 'not-a-token', 'sandbox')$q$, pg_temp.v('dan')));
