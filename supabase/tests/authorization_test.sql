@@ -228,6 +228,23 @@ select set_config('request.jwt.claims', '{"role":"anon"}', true), set_config('re
 select pg_temp.fails('anon creates a circle', $q$select public.create_circle('x')$q$);
 select pg_temp.fails('anon registers a device', format($q$select public.register_device(%L, %L)$q$, pg_temp.v('dan'), repeat('ab', 32)));
 
+-- Retention cleanup: old cases and stale rate-limit rows go, recent ones stay.
+reset role;
+insert into cases (circle_id, protected_member_id, level, category, summary_for_guardian, created_at)
+  values (pg_temp.v('circle')::uuid, pg_temp.v('mum')::uuid, 2, 'other', 'old', now() - interval '31 days');
+insert into join_attempts (user_id, created_at) values ('00000000-0000-4000-8000-000000000009', now() - interval '2 days');
+insert into ai_calls (user_id, created_at) values ('00000000-0000-4000-8000-000000000009', now() - interval '2 days');
+do $$ declare before int; begin
+  before := (select count(*) from cases where created_at > now() - interval '1 day');
+  perform public.stead_cleanup();
+  assert not exists (select 1 from cases where summary_for_guardian = 'old'), 'old case deleted';
+  assert (select count(*) from cases where created_at > now() - interval '1 day') = before, 'recent cases kept';
+  assert not exists (select 1 from join_attempts where user_id = '00000000-0000-4000-8000-000000000009'), 'stale join attempts deleted';
+  assert not exists (select 1 from ai_calls where user_id = '00000000-0000-4000-8000-000000000009'), 'stale ai calls deleted';
+end $$;
+set local role authenticated;
+select pg_temp.fails('users cannot run the cleanup', $q$select public.stead_cleanup()$q$);
+
 reset role;
 do $$ begin raise notice 'authorization tests: ALL PASS'; end $$;
 rollback;

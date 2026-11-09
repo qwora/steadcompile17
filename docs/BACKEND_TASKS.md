@@ -200,7 +200,7 @@ let changes = channel.postgresChange(AnyAction.self, schema: "public", table: "c
 await channel.subscribe()
 for await change in changes { await reloadCases() }   // insert = new case, update = status / answer / resolution
 ```
-Recovery (instead of 3 s polling): refetch `cases where circle_id = … order by updated_at desc limit 50` **on app foreground, on channel (re)subscribe, and after a push tap**. If the channel stays unsubscribed, refetch every 60 s while the screen is visible, and stop once it reconnects.
+Recovery (instead of 3 s polling): refetch `cases where circle_id = … order by created_at desc limit 50` **on app foreground, on channel (re)subscribe, and after a push tap**. If the channel stays unsubscribed, refetch every 60 s while the screen is visible, and stop once it reconnects.
 
 ---
 
@@ -221,3 +221,4 @@ Use `.example` domains in test messages, never real scam links.
 - A guardian on a `verify_identity` case with no target can answer for the circle. Single-use codes keep strangers out, but the protected person's app should show who answered.
 - Display names show in pushes (1–40 chars, enforced). Members choose their own, so a member could pick a misleading one.
 - A Level 3 case pushes regardless of `auto_share` (urgent by design); the app decides whether a Level 3 case is created when auto-share is off.
+- **Retention:** a nightly pg_cron job (`stead-cleanup`, 03:17 UTC) deletes cases older than 30 days (and their push_log rows) and rate-limit rows older than a day.

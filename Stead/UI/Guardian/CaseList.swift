@@ -51,6 +51,9 @@ private struct CaseCard: View {
                  : "\(person) got a message that may be a scam")
                 .font(.title3.bold())
             Text(item.summary_for_guardian).foregroundStyle(Theme.text)
+            if let ask = item.requested_action {
+                Label("Asks to: \(ask)", systemImage: "hand.raised.fill").font(.subheadline.weight(.semibold)).foregroundStyle(level.color)
+            }
             if let how = item.recommended_verification {
                 Label(how, systemImage: "checkmark.shield").font(.subheadline).foregroundStyle(Theme.muted)
             }
