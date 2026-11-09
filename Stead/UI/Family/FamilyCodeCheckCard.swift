@@ -97,7 +97,7 @@ struct FamilyCodeCheckCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("Code matches", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(Theme.teal)
                 Text("This is really \(name).").font(.title2.bold())
-                            }
+            }
         }
     }
 

@@ -31,6 +31,13 @@ Deno.test("verify_identity goes to the named guardian; answers go back to the pr
   assertEquals(planPush({ ...base, handled_by: "m-dan" }, "status:checking", fam)?.body.startsWith("Daniel is checking"), true);
 });
 
+Deno.test("two-way: a guardian's own warning goes to everyone else, Mum included", () => {
+  const d: CaseRow = { ...base, level: 3, protected_member_id: "m-dan" };
+  assertEquals(planPush(d, "created", fam)?.recipients, ["m-mum", "m-sis"]);
+  assertEquals(planPush({ ...d, kind: "verify_identity", verify_target_member_id: "m-dan" }, "created", fam)?.recipients,
+    ["m-mum", "m-sis"], "a verify case never asks the sender himself");
+});
+
 Deno.test("recipients never include people outside the circle's member list", () => {
   const p = planPush({ ...base, kind: "verify_identity", verify_target_member_id: "m-stranger" }, "created", fam)!;
   assertEquals(p.recipients, ["m-dan", "m-sis"]);

@@ -161,12 +161,6 @@ final class FamilyStore: ObservableObject {
         save()
     }
 
-    func removeKey(_ id: UUID) {
-        SecretVault.delete(id: id)
-        keys.removeAll { $0.id == id }
-        save()
-    }
-
     func currentCode(for key: FamilyKey) -> String? {
         SecretVault.load(id: key.id).map { FamilyCode.code(secret: $0) }
     }

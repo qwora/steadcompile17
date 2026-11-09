@@ -135,6 +135,15 @@ select pg_temp.login('00000000-0000-4000-8000-000000000002');
 select pg_temp.fails('guardian inserts a case for Mum', format(
   $q$insert into cases (circle_id, protected_member_id, level, category, summary_for_guardian)
      values (%L, %L, 3, 'other', 'fake')$q$, pg_temp.v('circle'), pg_temp.v('mum')));
+-- Everyone protects everyone: Daniel shares his own warning, aimed at Mum.
+do $$ declare v uuid; begin
+  insert into cases (circle_id, protected_member_id, kind, level, category, summary_for_guardian, verify_target_member_id)
+    values (pg_temp.v('circle')::uuid, pg_temp.v('dan')::uuid, 'verify_identity', 3, 'family_impersonation',
+            'Someone says they are Mum and asks for money.', pg_temp.v('mum')::uuid)
+    returning id into v;
+  perform set_config('t.dcase', v::text, false);
+end $$;
+select pg_temp.fails('member answers his own verify case', format($q$update cases set verify_answer = 'yes' where id = %L$q$, pg_temp.v('dcase')));
 do $$ declare n int; begin
   update cases set status = 'checking', handled_by = pg_temp.v('dan')::uuid where id = pg_temp.v('case')::uuid;
   get diagnostics n = row_count;
@@ -159,6 +168,10 @@ select pg_temp.login('00000000-0000-4000-8000-000000000001');
 do $$ begin
   assert (select status from cases where id = pg_temp.v('case')::uuid) = 'resolved', 'Mum sees the resolution';
   assert (select verify_answer from cases where id = pg_temp.v('vcase')::uuid) = 'no', 'Mum sees the answer';
+end $$;
+do $$ begin
+  update cases set verify_answer = 'no', status = 'resolved' where id = pg_temp.v('dcase')::uuid;
+  assert (select verify_answer from cases where id = pg_temp.v('dcase')::uuid) = 'no', 'Mum answers Daniel''s verify case';
 end $$;
 select pg_temp.fails('protected user answers her own verify case', format($q$update cases set verify_answer = 'yes' where id = %L$q$, pg_temp.v('vcase')));
 

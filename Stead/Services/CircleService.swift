@@ -75,10 +75,8 @@ final class CircleService: ObservableObject {
            let saved = try? JSONDecoder().decode([Membership].self, from: data) { memberships = saved }
     }
 
-    var protectedMembership: Membership? { memberships.first { $0.pairingID == nil } }
-    /// The family circle this phone shares warnings into. Everyone protects everyone, so a member
-    /// who joined by QR uses that same circle (no second, one-way circle).
-    var familyMembership: Membership? { protectedMembership ?? memberships.first }
+    /// The family circle this phone shares warnings into: the one it created, else the one it joined by QR.
+    var familyMembership: Membership? { memberships.first { $0.pairingID == nil } ?? memberships.first }
     /// My member id in a given circle.
     func myMemberID(in circle: UUID) -> UUID? { memberships.first { $0.circleID == circle }?.memberID }
     /// Cases from someone else in my circles (the ones I can help with).

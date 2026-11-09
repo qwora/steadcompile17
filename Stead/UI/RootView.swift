@@ -42,6 +42,9 @@ struct ProtectedTabs: View {
         .sheet(item: Binding(get: { router.openEvent.map(EventRef.init) }, set: { router.openEvent = $0?.id })) { ref in
             NavigationStack { MessageCheckView(eventID: ref.id) }
         }
+        .fullScreenCover(item: Binding(get: { router.pauseEvent.flatMap(store.event(id:)) }, set: { if $0 == nil { router.pauseEvent = nil } })) { e in
+            PauseView(event: e) { router.finishPause(e.id) }
+        }
         #if DEBUG
         .task { await DebugSeed.runIfRequested() }
         #endif

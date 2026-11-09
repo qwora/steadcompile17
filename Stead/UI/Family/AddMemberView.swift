@@ -104,10 +104,11 @@ struct AddMemberView: View {
                     Task {
                         // A fresh single-use invite rides in the QR so scanning also joins the circle.
                         let invite = await CircleService.shared.inviteForPairing(myName: myName)
-                        defer { if let id = payload?.id { family.update(id) { $0.relationship = relationship } } }
-                    payload = family.addMember(name: name.trimmingCharacters(in: .whitespaces), color: color,
-                                                   contactNames: linked?.names ?? [], phones: linked?.phones ?? [],
-                                                   protectedName: myName.isEmpty ? "Family" : myName, invite: invite)
+                        let p = family.addMember(name: name.trimmingCharacters(in: .whitespaces), color: color,
+                                                 contactNames: linked?.names ?? [], phones: linked?.phones ?? [],
+                                                 protectedName: myName.isEmpty ? "Family" : myName, invite: invite)
+                        family.update(p.id) { $0.relationship = relationship }
+                        payload = p
                     }
                 }
                 .buttonStyle(PrimaryButtonStyle(tint: color.color))

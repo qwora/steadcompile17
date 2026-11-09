@@ -66,4 +66,5 @@ Secrets on the project (values not in the repo): `ANTHROPIC_API_KEY` (missing), 
 - **No polling while Realtime is down.** The app refetches on foreground, on push and on reconnect instead.
 - **No way to leave a circle or remove a member yet**, and `unregister_device` is never called.
 - **Level 3 always pushes**, regardless of the auto-share setting. Level 2 needs consent. Level 1 only when Mum taps "Ask family".
+- **Safety pause** (`PauseView.swift`): an urgent (Level 3) message first opens a full-screen "Wait. Take a moment." screen with a 20 s countdown, read aloud, and a "Call <family>" button using the number saved on the phone. After the countdown the person can always continue. It shows once per message, from a notification tap or on opening the app within 30 min. Settings → "Pause before urgent messages" turns it off. It doesn't block other apps; that would need Apple's Family Controls entitlement.
 - **The message text is never stored or logged.** Keep it that way: cases hold only the AI's short summary.

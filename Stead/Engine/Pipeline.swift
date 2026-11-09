@@ -107,6 +107,11 @@ enum Settings {
         get { Level(rawValue: UserDefaults.standard.object(forKey: "alertFrom") as? Int ?? Level.worthALook.rawValue) ?? .worthALook }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "alertFrom") }
     }
+    /// "Pause before urgent messages": the full-screen moment to stop and call family. On by default.
+    static var pauseOnUrgent: Bool {
+        get { UserDefaults.standard.object(forKey: "pauseOnUrgent") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "pauseOnUrgent") }
+    }
     static var autoShareSerious: Bool {
         get { UserDefaults.standard.object(forKey: "autoShareSerious") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "autoShareSerious") }

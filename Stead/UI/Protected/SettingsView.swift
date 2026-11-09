@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("showEveryCheck") private var showEveryCheck = false
     @AppStorage("autoShareSerious") private var autoShare = true
     @AppStorage("alertFrom") private var alertFrom = Level.worthALook.rawValue
+    @AppStorage("pauseOnUrgent") private var pauseOnUrgent = true
     @State private var confirmClear = false
 
     var body: some View {
@@ -27,6 +28,11 @@ struct SettingsView: View {
                 Text("Alerts")
             } footer: {
                 Text("Stead still checks every message and keeps them in Activity. Family-code checks always alert you.")
+            }
+            Section {
+                Toggle("Pause before urgent messages", isOn: $pauseOnUrgent)
+            } footer: {
+                Text("When a message pushes you hard, Stead shows a short \"Wait. Take a moment.\" screen first, with a button to call family. You can always continue after it.")
             }
             Section {
                 Toggle("Tell my family when it's serious", isOn: $autoShare)

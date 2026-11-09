@@ -1,16 +1,12 @@
 import SwiftUI
 
-/// Guardian side: live cases from the people I look out for (Realtime + push), newest first.
+/// Live cases from everyone else in my family circles (Realtime + push), newest first.
 struct CaseList: View {
     var onlyOpen = false
     @StateObject private var circle = CircleService.shared
 
-    /// Only circles I joined to look out for someone (not my own circle, where I'm the one protected).
-    private var mine: [CaseRow] {
-        circle.othersCases
-    }
-    private var open: [CaseRow] { mine.filter { $0.status != "resolved" } }
-    private var recent: [CaseRow] { onlyOpen ? [] : Array(mine.filter { $0.status == "resolved" }.prefix(3)) }
+    private var open: [CaseRow] { circle.othersCases.filter { $0.status != "resolved" } }
+    private var recent: [CaseRow] { onlyOpen ? [] : Array(circle.othersCases.filter { $0.status == "resolved" }.prefix(3)) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -44,7 +40,7 @@ private struct CaseCard: View {
             && (item.verify_target_member_id == nil || item.verify_target_member_id == me)
     }
 
-    private var resolved: Bool { item.status == "resolved" || item.verify_answer != nil }
+    private var resolved: Bool { item.status == "resolved" }
 
     var body: some View {
         Card {

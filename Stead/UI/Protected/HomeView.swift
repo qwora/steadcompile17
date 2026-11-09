@@ -103,7 +103,7 @@ struct HomeView: View {
 
     /// An open case from someone I look out for.
     private var familyNeedsYou: Bool {
-        circle.othersCases.contains { $0.status != "resolved" && $0.verify_answer == nil }
+        circle.othersCases.contains { $0.status != "resolved" }
     }
 
     private var heroTitle: String {

@@ -28,6 +28,11 @@ struct MessageEvent: Codable, Identifiable, Hashable {
     var familyCheck: FamilyCheck?
     /// The shared case on the server, once this message was sent to the family.
     var caseID: UUID?
+    /// When the person went through the "Wait. Take a moment." screen (urgent messages only).
+    var pausedAt: Date?
+
+    /// Urgent and not paused yet: show PauseView before the details.
+    var needsPause: Bool { level == .urgent && pausedAt == nil && !dismissedByUser && Settings.pauseOnUrgent }
 
     var appLabel: String { app.isEmpty ? "Unknown app" : app }
     var senderLabel: String { sender.isEmpty ? "Unknown sender" : sender }
