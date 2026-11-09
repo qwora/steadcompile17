@@ -38,11 +38,11 @@ Secrets on the project (values not in the repo): `ANTHROPIC_API_KEY` (missing), 
    ```bash
    npx supabase@3.0.0 secrets set ANTHROPIC_API_KEY=sk-ant-…
    ```
-   Check it with the live eval (19 messages, a few cents):
+   Check it with the live eval (22 messages, a few cents):
    ```bash
    SUPABASE_URL=https://xdbvowflznhepcfmbrnj.supabase.co SUPABASE_ANON_KEY=<anon key from Config.swift> deno run --allow-net --allow-env supabase/functions/analyze/eval.ts
    ```
-   Expect `ALL 19 PASS`, each under ~5 s.
+   Expect `ALL 22 PASS`, each under ~5 s.
 2. **Build in Xcode** and fix any compile errors. The likeliest spot is the supabase-swift 2.55 Realtime calls in `CircleService.subscribe()` (`postgresChange` filter, `subscribe()`). If the build complains about provisioning, enable **Push Notifications** for `com.qawi.stead` in the Apple Developer portal (entitlement: `Stead.entitlements`).
 3. **Two-phone test.**
    - Mum: Family → add Daniel → show QR. Daniel: "Someone in my family" → Scan family QR.

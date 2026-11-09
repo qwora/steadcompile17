@@ -51,6 +51,13 @@ const cases: Case[] = [
     cats: ["not_a_scam"], levels: ["looks_normal"] },
   { name: "Clinic reminder", text: "Reminder: your appointment at Klinik Sejahtera is tomorrow at 10am.", locale: "en", sender: "contact", signals: [],
     cats: ["not_a_scam"], levels: ["looks_normal"] },
+  // English playbooks
+  { name: "Hi Mum new number (en)", text: "Hi Mum, this is my new number, my old phone broke. Can you help me pay a bill today? I'll explain later, can't talk right now.",
+    locale: "en", sender: "number", signals: ["newphone", "payment", "nocall"], cats: ["family_impersonation"], levels: careful },
+  { name: "Tech support (en)", text: "Microsoft Security Alert: your computer is infected. Install AnyDesk now so our technician can fix it, or your bank details may be stolen.",
+    locale: "en", sender: "number", signals: ["credentials"], cats: ["account_takeover", "other"], levels: careful },
+  { name: "Tax refund (en)", text: "IRS: You are eligible for a tax refund. Confirm your bank details within 24 hours at https://refund.example/claim",
+    locale: "en", sender: "number", signals: ["authority", "link", "urgency"], cats: ["government_impersonation"], levels: careful },
   // Hacked contact
   { name: "Friend borrows money", text: "Hi, it's Aunty Lim. Sorry to ask, can you transfer RM500 to this account for me? I'll pay you back tomorrow, my banking app is down. Please don't call, I'm in a meeting.",
     locale: "en", sender: "contact", signals: ["payment", "nocall"], cats: ["account_takeover", "family_impersonation"], levels: careful },
