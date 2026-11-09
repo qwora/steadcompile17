@@ -36,7 +36,7 @@ enum Pipeline {
         case .skip where !family.needed:
             if event.level == .urgent {
                 Notifier.result(event)
-                FamilyBridge.escalate(event)
+                await FamilyBridge.escalate(event)
             } else if Settings.showEveryCheck {
                 Notifier.quiet(event)
             }
@@ -60,7 +60,7 @@ enum Pipeline {
         store.upsert(event)
 
         if !family.needed { Notifier.result(event) }
-        FamilyBridge.escalate(event)
+        await FamilyBridge.escalate(event)
         return store.event(id: event.id) ?? event
     }
 }
@@ -105,16 +105,20 @@ enum Settings {
     }
 }
 
-/// Hands serious cases to the family circle. Phase 3 connects this to Supabase.
+/// Hands serious cases to the family circle (Supabase `cases`; the server decides who gets a push).
 @MainActor
 enum FamilyBridge {
-    static func escalate(_ event: MessageEvent) {
+    /// Awaited by the pipeline, so a background Shortcut run doesn't end before the case is written.
+    static func escalate(_ event: MessageEvent) async {
         guard event.level >= .beCareful, Settings.autoShareSerious, event.familyStatus == .none else { return }
-        share(event.id)
+        EventStore.shared.update(event.id) { $0.familyStatus = .shared }
+        if let shared = EventStore.shared.event(id: event.id) { await CircleService.shared.share(shared, requested: false) }
     }
 
-    /// Marks the case as shared. The Supabase write is added in Phase 3.
-    static func share(_ id: UUID) {
+    /// `requested`: she tapped "Ask family" herself, so family is told even at Level 1.
+    static func share(_ id: UUID, requested: Bool = true) {
         EventStore.shared.update(id) { $0.familyStatus = .shared }
+        guard let event = EventStore.shared.event(id: id) else { return }
+        Task { await CircleService.shared.share(event, requested: requested) }
     }
 }

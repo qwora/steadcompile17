@@ -76,7 +76,12 @@ struct FamilyView: View {
                 }
                 Spacer()
                 Menu {
-                    Button { showingQR = family.payload(for: m, protectedName: myName) } label: { Label("Show pairing QR", systemImage: "qrcode") }
+                    Button {
+                        Task {
+                            let invite = await CircleService.shared.inviteForPairing(myName: myName)
+                            showingQR = family.payload(for: m, protectedName: myName, invite: invite)
+                        }
+                    } label: { Label("Show pairing QR", systemImage: "qrcode") }
                     Button(role: .destructive) { family.remove(m.id) } label: { Label("Remove", systemImage: "trash") }
                 } label: {
                     Image(systemName: "ellipsis.circle").font(.title2).foregroundStyle(Theme.muted)

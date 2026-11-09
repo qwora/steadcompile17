@@ -85,9 +85,13 @@ struct AddMemberView: View {
                 }
 
                 Button("Continue to pairing") {
-                    payload = family.addMember(name: name.trimmingCharacters(in: .whitespaces), color: color,
-                                               contactNames: linked?.names ?? [], phones: linked?.phones ?? [],
-                                               protectedName: myName.isEmpty ? "Family" : myName)
+                    Task {
+                        // A fresh single-use invite rides in the QR so scanning also joins the circle.
+                        let invite = await CircleService.shared.inviteForPairing(myName: myName)
+                        payload = family.addMember(name: name.trimmingCharacters(in: .whitespaces), color: color,
+                                                   contactNames: linked?.names ?? [], phones: linked?.phones ?? [],
+                                                   protectedName: myName.isEmpty ? "Family" : myName, invite: invite)
+                    }
                 }
                 .buttonStyle(PrimaryButtonStyle(tint: color.color))
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)

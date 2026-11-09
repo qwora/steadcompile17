@@ -26,6 +26,8 @@ struct MessageEvent: Codable, Identifiable, Hashable {
     var dismissedByUser = false
     var familyMemberID: UUID?
     var familyCheck: FamilyCheck?
+    /// The shared case on the server, once this message was sent to the family.
+    var caseID: UUID?
 
     var appLabel: String { app.isEmpty ? "Unknown app" : app }
     var senderLabel: String { sender.isEmpty ? "Unknown sender" : sender }

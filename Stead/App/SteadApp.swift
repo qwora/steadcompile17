@@ -16,7 +16,10 @@ struct SteadApp: App {
                 .preferredColorScheme(.dark)
                 .tint(Theme.teal)
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .active { store.reload() }
+                    if phase == .active {
+                        store.reload()
+                        Task { await CircleService.shared.refresh() }
+                    }
                 }
         }
     }
@@ -41,15 +44,28 @@ final class Router: ObservableObject {
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        if Config.isBackendConfigured { application.registerForRemoteNotifications() }
         return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { @MainActor in CircleService.shared.setPushToken(deviceToken) }
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
         await MainActor.run { EventStore.shared.reload() }
+        if notification.request.content.userInfo["case_id"] != nil {
+            await CircleService.shared.refresh()   // a family push: pull the latest case
+        }
         return [.banner, .list, .sound]
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        // Family push from the server: it carries only a case id; details are fetched after opening.
+        if let raw = response.notification.request.content.userInfo["case_id"] as? String, let caseID = UUID(uuidString: raw) {
+            await MainActor.run { CircleService.shared.openCase(caseID) }
+            return
+        }
         guard let raw = response.notification.request.content.userInfo[Notifier.eventKey] as? String,
               let id = UUID(uuidString: raw) else { return }
         await MainActor.run { Router.shared.open(id) }

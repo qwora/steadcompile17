@@ -4,6 +4,7 @@ import VisionKit
 /// Family-member side: the people I look out for, and my family code for each, behind Face ID.
 struct GuardianHomeView: View {
     @StateObject private var family = FamilyStore.shared
+    @StateObject private var circle = CircleService.shared
     @AppStorage("displayName") private var myName = ""
     @AppStorage("mode") private var modeRaw = ""
     @State private var scanning = false
@@ -40,10 +41,14 @@ struct GuardianHomeView: View {
                     Button("Enter pairing code instead") { pasting = true }
                         .font(.subheadline).foregroundStyle(Theme.muted)
 
-                    Card {
-                        Label("Coming next: live alerts", systemImage: "bell.badge.fill").font(.headline).foregroundStyle(Theme.blue)
-                        Text("When they get a likely scam, you'll see it here and can tell them \"I'm checking\".")
-                            .font(.subheadline).foregroundStyle(Theme.muted)
+                    if circle.memberships.isEmpty {
+                        Card {
+                            Label("Live alerts", systemImage: "bell.badge.fill").font(.headline).foregroundStyle(Theme.blue)
+                            Text("Once you've scanned their QR, likely scams show up here and you can tell them \"I'm checking\".")
+                                .font(.subheadline).foregroundStyle(Theme.muted)
+                        }
+                    } else {
+                        CaseList()
                     }
                 }
                 .padding(20)
@@ -55,6 +60,7 @@ struct GuardianHomeView: View {
             .sheet(isPresented: $scanning) { QRScannerSheet { handle($0) } }
             .sheet(isPresented: $pasting) { NavigationStack { PastePairingView { handle($0) } } }
             .fullScreenCover(item: $openKey) { key in CodeView(key: key) }
+            .refreshable { await circle.refresh() }
         }
     }
 
@@ -83,6 +89,12 @@ struct GuardianHomeView: View {
         family.addKey(from: payload, myName: myName)
         scanning = false; pasting = false
         withAnimation(.spring) { justPaired = payload.protectedName }
+        guard let invite = payload.invite else { return }
+        Task {
+            _ = await Notifier.requestPermission()
+            // Join under the name they know us by, so their phone can match us to this pairing.
+            await circle.join(code: invite, as: payload.memberName, pairingID: payload.id)
+        }
     }
 }
 

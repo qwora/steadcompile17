@@ -135,6 +135,8 @@ struct FamilyCodeCheckCard: View {
             if !ok { $0.level = .urgent }
         }
         if !ok { withAnimation(.default) { shake += 1 } }
+        let eventID = event.id
+        Task { await CircleService.shared.reportFamilyCode(eventID: eventID, ok: ok) }
         Speaker.shared.speak(ok ? "Code matches. This is really \(name)." : "Wrong code. This may not be \(name). Don't send money.")
     }
 

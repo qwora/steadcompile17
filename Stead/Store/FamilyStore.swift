@@ -72,7 +72,8 @@ final class FamilyStore: ObservableObject {
     // MARK: Protected side
 
     /// Creates a member and a fresh secret. Returns the QR payload to show.
-    func addMember(name: String, color: KittenColor, contactNames: [String], phones: [String], protectedName: String) -> PairingPayload {
+    func addMember(name: String, color: KittenColor, contactNames: [String], phones: [String], protectedName: String,
+                   invite: String? = nil) -> PairingPayload {
         let id = UUID()
         let secret = FamilyCode.newSecret()
         SecretVault.save(secret, id: id)
@@ -80,12 +81,14 @@ final class FamilyStore: ObservableObject {
         if !names.contains(where: { FamilyStore.normalise($0) == FamilyStore.normalise(name) }) { names.append(name) }
         members.append(FamilyMember(id: id, name: name, color: color, contactNames: names, phoneNumbers: phones, paired: false))
         save()
-        return PairingPayload(v: 1, id: id, protectedName: protectedName, memberName: name, color: color.rawValue, secret: secret)
+        return PairingPayload(v: 1, id: id, protectedName: protectedName, memberName: name, color: color.rawValue, secret: secret,
+                              invite: invite)
     }
 
-    func payload(for member: FamilyMember, protectedName: String) -> PairingPayload? {
+    func payload(for member: FamilyMember, protectedName: String, invite: String? = nil) -> PairingPayload? {
         guard let secret = SecretVault.load(id: member.id) else { return nil }
-        return PairingPayload(v: 1, id: member.id, protectedName: protectedName, memberName: member.name, color: member.color.rawValue, secret: secret)
+        return PairingPayload(v: 1, id: member.id, protectedName: protectedName, memberName: member.name, color: member.color.rawValue,
+                              secret: secret, invite: invite)
     }
 
     func markPaired(_ id: UUID) { update(id) { $0.paired = true } }

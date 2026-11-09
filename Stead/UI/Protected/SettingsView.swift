@@ -18,6 +18,7 @@ struct SettingsView: View {
             }
             Section {
                 Toggle("Tell my family when it's serious", isOn: $autoShare)
+                    .onChange(of: autoShare) { Task { await CircleService.shared.syncConsent() } }
                 Toggle("Show every check (for testing)", isOn: $showEveryCheck)
             } footer: {
                 Text("Normal messages are checked on this phone and never sent anywhere.")

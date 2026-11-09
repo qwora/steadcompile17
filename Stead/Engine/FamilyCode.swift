@@ -110,6 +110,9 @@ struct PairingPayload: Codable, Equatable {
     let memberName: String
     let color: String
     let secret: Data
+    /// Single-use Supabase invite code, so scanning also joins the family circle. Optional:
+    /// older QRs and offline pairing have none. The family-code secret never goes to the server.
+    var invite: String? = nil
 
     static let prefix = "STEAD1:"
 

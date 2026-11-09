@@ -8,7 +8,7 @@ Everything here lives under `supabase/`. Full product context: [PLAN.md](PLAN.md
 | `analyze` (Claude Haiku 5.5) | ✅ offline tests · 🟡 live eval not yet run | `functions/analyze/` |
 | Circles, members, cases + RLS | ✅ SQL tests (PGlite stand-in) · 🟡 run on real Supabase | `migrations/`, `tests/authorization_test.sql` |
 | Device tokens + `notify` (APNs) | ✅ simulated APNs tests · 🟡 real device delivery | `migrations/…_harden_circles_and_push.sql`, `functions/notify/` |
-| iOS side of circles/cases/push/Realtime | ⬜ (iOS team, contract in §5) | `Stead/` |
+| iOS side of circles/cases/push/Realtime | 🟡 written, **not yet compiled** (no Xcode on the machine it was written on) | `Stead/Services/CircleService.swift`, `Stead/UI/Guardian/CaseList.swift` |
 
 ---
 
@@ -138,7 +138,16 @@ case insert/update ──► trigger cases_notify ──pg_net──► notify (
 
 ---
 
-## 5. iOS integration contract (to build in `Stead/`)
+## 5. iOS integration contract
+
+**Implemented in `CircleService`** and wired into the family-code pairing:
+- "Continue to pairing" / "Show pairing QR" creates the circle once, then puts a fresh single-use invite in the QR (`PairingPayload.invite`). The family-code secret stays on the phones.
+- Scanning the QR on the guardian phone joins the circle under the name Mum gave them, asks for notification permission and registers the push token.
+- `FamilyBridge` writes cases (`verify_identity` with the guardian as target when a family check is needed). A correct family code resolves the case; a wrong one creates a Level 3 case, so every guardian gets the urgent push.
+- The guardian home shows live cases with "I'm checking", "Mark as handled" and "Yes, it's me / No, that's not me". Mum's message screen shows the answer.
+- The push entitlement is `Stead.entitlements` (`aps-environment`), and refresh happens on foreground, push and Realtime change.
+
+The snippets below are the underlying calls.
 
 Requires: **Push Notifications** capability (`aps-environment` entitlement) on the app target. Snippets target supabase-swift 2.x (2.55.6 resolved).
 
