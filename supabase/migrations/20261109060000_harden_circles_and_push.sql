@@ -18,6 +18,10 @@ end $$;
 create trigger members_guard before update on public.members
   for each row execute function public.members_guard();
 
+-- Names show on lock-screen pushes; keep them short. NOT VALID: existing rows aren't re-checked.
+alter table public.members add constraint members_display_name_len
+  check (char_length(display_name) between 1 and 40) not valid;
+
 -- ── 2. Cases: facts are fixed once written; guardians only act on them ──
 alter table public.cases add column if not exists requested_by_user boolean not null default false;
 comment on column public.cases.requested_by_user is
@@ -35,14 +39,18 @@ create policy "protected member creates own cases" on public.cases
           where g.id = verify_target_member_id and g.circle_id = cases.circle_id and g.role = 'guardian'))
   );
 
--- Runs as the caller (no security definer), so service_role (the push function) is unrestricted.
+-- Applies to every request made with a user's JWT, including inside SECURITY DEFINER RPCs
+-- (current_user would be the owner there). Service role (the push function) is unrestricted.
 create or replace function public.cases_guard()
 returns trigger language plpgsql set search_path = public as $$
 declare
   v_me uuid;
   v_role text;
 begin
-  if current_user not in ('authenticated', 'anon') then return new; end if;
+  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') not in ('authenticated', 'anon')
+     and current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
 
   if (new.id, new.circle_id, new.protected_member_id, new.kind, new.level, new.category, new.app, new.sender_label,
       new.claimed_identity, new.requested_action, new.summary_for_guardian, new.recommended_verification,
@@ -111,6 +119,9 @@ end $$;
 
 -- Rejection of a bad or expired code returns ZERO ROWS (not an exception) so the failed
 -- attempt is recorded; 10 failures per user per 15 minutes then raises 'too many attempts'.
+-- A code is SINGLE-USE: a successful new join expires it (refresh_invite_code for the next person),
+-- so a guessed code is worth at most one seat and the family sees who took it.
+-- A joiner can only be 'protected' if the circle has no protected member yet (guardian-created circle).
 -- shortcut: per-user limit only; anonymous sign-ups are capped per IP by Supabase Auth (default 30/h).
 -- Upgrade to a per-IP limiter in an Edge Function if codes are ever long-lived.
 create or replace function public.join_circle(p_code text, p_display_name text, p_role text default 'guardian')
@@ -123,6 +134,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
   if char_length(trim(coalesce(p_display_name, ''))) not between 1 and 40 then raise exception 'invalid display name'; end if;
+  perform pg_advisory_xact_lock(hashtext('join:' || auth.uid()::text)); -- parallel calls can't skip the count
   if (select count(*) from join_attempts a
       where a.user_id = auth.uid() and a.created_at > now() - interval '15 minutes') >= 10 then
     raise exception 'too many attempts';
@@ -135,11 +147,21 @@ begin
     return;
   end if;
 
-  -- Re-joining keeps the existing role: a code can't be used to turn a guardian into the protected person.
+  select m.id into v_member from members m where m.circle_id = v_circle and m.user_id = auth.uid();
+  if v_member is not null then
+    -- Re-joining keeps the existing role and doesn't use up the code.
+    update members set display_name = trim(p_display_name) where id = v_member;
+    return query select v_circle, v_member;
+    return;
+  end if;
+
+  if p_role = 'protected' and exists (select 1 from members m where m.circle_id = v_circle and m.role = 'protected') then
+    raise exception 'this circle already has a protected member';
+  end if;
   insert into members (circle_id, user_id, role, display_name)
     values (v_circle, auth.uid(), p_role, trim(p_display_name))
-    on conflict (circle_id, user_id) do update set display_name = excluded.display_name
     returning id into v_member;
+  update circles set code_expires_at = now() where id = v_circle;
   return query select v_circle, v_member;
 end $$;
 
@@ -161,6 +183,30 @@ revoke execute on function public.create_circle(text, text, text) from public, a
 revoke execute on function public.join_circle(text, text, text) from public, anon;
 revoke execute on function public.refresh_invite_code(uuid) from public, anon;
 revoke execute on function public.new_invite_code() from public, anon, authenticated;
+
+-- ── 3b. AI call budget: 60 `analyze` calls per user per hour ────────────
+-- Holds only (user, time). `analyze` calls this with the caller's JWT, which also proves sign-in.
+create table public.ai_calls (
+  user_id    uuid not null,
+  created_at timestamptz not null default now()
+);
+create index ai_calls_user on public.ai_calls (user_id, created_at desc);
+alter table public.ai_calls enable row level security; -- no policies: RPC only
+
+create or replace function public.claim_ai_call()
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  perform pg_advisory_xact_lock(hashtext('ai:' || auth.uid()::text));
+  if (select count(*) from ai_calls a where a.user_id = auth.uid() and a.created_at > now() - interval '1 hour') >= 60 then
+    return false;
+  end if;
+  delete from ai_calls a where a.user_id = auth.uid() and a.created_at < now() - interval '1 hour';
+  insert into ai_calls (user_id) values (auth.uid());
+  return true;
+end $$;
+revoke execute on function public.claim_ai_call() from public, anon;
+grant execute on function public.claim_ai_call() to authenticated;
 
 -- ── 4. Device tokens (APNs) ─────────────────────────────────────────────
 create table public.device_tokens (

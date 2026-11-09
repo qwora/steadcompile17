@@ -144,15 +144,25 @@ export function validateAssessment(raw: unknown, messageText: string): Assessmen
   }
   if (!Array.isArray(a.uncertainties) || a.uncertainties.length > 3 || !a.uncertainties.every((u) => isStr(u, 200))) return null;
 
-  const userFacing = [a.explanation_for_user, a.summary_for_guardian, a.recommended_verification] as string[];
-  if (userFacing.some((s) => PERCENT_RE.test(s))) return null;
-  if (URL_RE.test(a.summary_for_guardian as string) || URL_RE.test(a.recommended_verification as string)) return null;
-  const numbersInMessage = messageText.replace(/[\s()-]/g, "").match(/\+?\d{6,}/g) ?? [];
-  const verification = (a.recommended_verification as string).replace(/[\s()-]/g, "");
-  const summary = (a.summary_for_guardian as string).replace(/[\s()-]/g, "");
-  if (numbersInMessage.some((n) => verification.includes(n) || summary.includes(n))) return null;
+  // Every string the user or guardian sees: an injected message must not get a link or its own
+  // phone number shown back as advice.
+  const shown = [a.explanation_for_user, a.summary_for_guardian, a.recommended_verification, ...a.uncertainties] as string[];
+  if (shown.some((s) => PERCENT_RE.test(s) || URL_RE.test(s))) return null;
+  const digits = (s: string) => s.replace(/[\s().-]/g, "");
+  const numbersInMessage = digits(messageText).match(/\+?\d{6,}/g) ?? [];
+  if (shown.some((s) => numbersInMessage.some((n) => digits(s).includes(n)))) return null;
+  // The guardian summary is stored in `cases`: it must not quote the message (no raw text in the DB).
+  if (sharesLongRun(a.summary_for_guardian as string, messageText, 25)) return null;
 
   return a as unknown as Assessment;
+}
+
+/** True if `a` and `b` share any run of `n` characters (whitespace-insensitive, case-insensitive). */
+export function sharesLongRun(a: string, b: string, n: number): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+  const x = norm(a), y = norm(b);
+  for (let i = 0; i + n <= x.length; i++) if (y.includes(x.slice(i, i + n))) return true;
+  return false;
 }
 
 /** Pulls the JSON answer out of a Messages API response, or null if there is none. */

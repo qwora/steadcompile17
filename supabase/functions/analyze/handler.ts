@@ -1,7 +1,7 @@
 // Stead `analyze`: receives ONE flagged message and returns a structured assessment from Claude.
 // Privacy: the message text is sent to Anthropic and then dropped. It is never stored or logged;
 // logs carry only status, latency and the resulting category/level.
-import { getUserId } from "../_shared/auth.ts";
+import { claimAiCall } from "../_shared/auth.ts";
 import { anthropicBody, extractJson, validateAssessment, validateRequest } from "./lib.ts";
 
 const cors = {
@@ -22,7 +22,9 @@ export async function handle(req: Request, fetchFn: typeof fetch = fetch): Promi
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  if (!(await getUserId(req, fetchFn))) return json({ error: "unauthorized" }, 401);
+  const budget = await claimAiCall(req, fetchFn);
+  if (budget === "unauthorized") return json({ error: "unauthorized" }, 401);
+  if (budget === "rate_limited") return json({ error: "rate_limited" }, 429);
 
   let body: unknown;
   try {

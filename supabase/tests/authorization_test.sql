@@ -59,6 +59,25 @@ do $$ declare r record; begin
   assert not exists (select 1 from public.join_circle('000000x', 'Daniel')), 'wrong code rejected';
 end $$;
 
+-- Codes are single-use, and a circle can't get a second protected member.
+select pg_temp.login('00000000-0000-4000-8000-000000000004');
+do $$ begin
+  assert not exists (select 1 from public.join_circle(pg_temp.v('code'), 'Sara')), 'used code rejected';
+end $$;
+select pg_temp.login('00000000-0000-4000-8000-000000000001');
+do $$ begin perform set_config('t.code2', public.refresh_invite_code(pg_temp.v('circle')::uuid), false); end $$;
+select pg_temp.login('00000000-0000-4000-8000-000000000005');
+select pg_temp.fails('second protected member', format($q$select public.join_circle(%L, 'Fake Mum', 'protected')$q$, pg_temp.v('code2')));
+select pg_temp.login('00000000-0000-4000-8000-000000000004');
+do $$ begin
+  assert exists (select 1 from public.join_circle(pg_temp.v('code2'), 'Sara')), 'fresh code works for the next guardian';
+end $$;
+select pg_temp.fails('display name too long', $q$update members set display_name = repeat('x', 41) where user_id = auth.uid()$q$);
+do $$ declare i int; begin
+  for i in 1..60 loop assert public.claim_ai_call(), 'AI call within budget'; end loop;
+  assert not public.claim_ai_call(), 'AI budget enforced at 61';
+end $$;
+
 -- Expired code is rejected.
 reset role;
 update circles set code_expires_at = now() - interval '1 minute' where id = pg_temp.v('eve_circle')::uuid;

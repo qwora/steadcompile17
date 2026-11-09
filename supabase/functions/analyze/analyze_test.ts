@@ -52,6 +52,11 @@ Deno.test("output validation: schema, enums, nulls, safety rules", () => {
   assertEquals(validateAssessment({ ...good, recommended_verification: "Call 010-5521-0937 to check" }, SECRET_TEXT), null,
     "number from the message");
   assertEquals(validateAssessment({ ...good, uncertainties: ["a", "b", "c", "d"] }, SECRET_TEXT), null);
+  assertEquals(validateAssessment({ ...good, explanation_for_user: "Please call 010 5521 0937 to confirm." }, SECRET_TEXT), null,
+    "number from the message in the explanation");
+  assertEquals(validateAssessment({ ...good, uncertainties: ["Check https://sw.example/xyz"] }, SECRET_TEXT), null, "link in uncertainties");
+  assertEquals(validateAssessment({ ...good, summary_for_guardian: "It says: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다." }, "[국외발신] 도로 관리24: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다."), null,
+    "summary quotes the message");
 });
 
 Deno.test("prompt fences the message and neutralises a fake closing tag", () => {
@@ -68,13 +73,13 @@ Deno.env.set("SUPABASE_URL", "https://test.supabase.example");
 Deno.env.set("SUPABASE_ANON_KEY", "anon");
 Deno.env.set("ANTHROPIC_API_KEY", "sk-test");
 
-function mockFetch(anthropic: () => Response | Promise<Response>, user = true): typeof fetch {
+function mockFetch(anthropic: () => Response | Promise<Response>, user = true, budget = true): typeof fetch {
   return ((input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
-    if (url.endsWith("/auth/v1/user")) {
+    if (url.endsWith("/rest/v1/rpc/claim_ai_call")) {
       const token = new Headers(init?.headers).get("authorization");
-      return Promise.resolve(user && token === "Bearer user-jwt"
-        ? Response.json({ id: "u1" }) : new Response("{}", { status: 401 }));
+      if (!user || token !== "Bearer user-jwt") return Promise.resolve(new Response("{}", { status: 401 }));
+      return Promise.resolve(Response.json(budget));
     }
     if (url === "https://api.anthropic.com/v1/messages") {
       const h = new Headers(init?.headers);
@@ -97,6 +102,11 @@ async function captureLogs(fn: () => Promise<void>) {
   try { await fn(); } finally { Object.assign(console, orig); }
   return lines.join("\n");
 }
+
+Deno.test("handler: over the hourly AI budget → 429, no AI call", async () => {
+  const res = await handle(post(req), mockFetch(() => { throw new Error("AI must not be called"); }, true, false));
+  assertEquals(res.status, 429);
+});
 
 Deno.test("handler: anon key / no user → 401", async () => {
   assertEquals((await handle(post(req, "anon"), mockFetch(() => claude(good)))).status, 401);

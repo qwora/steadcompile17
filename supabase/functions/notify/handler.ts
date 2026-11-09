@@ -89,6 +89,8 @@ export async function handle(req: Request, deps: Deps = { fetch, now: Date.now }
       failed++;
     }
   }));
+  // Every send failed (e.g. APNs outage): release the claim so a re-delivery of this event can retry.
+  if (sent === 0 && failed > 0) await db(`push_log?case_id=eq.${caseId}&event=eq.${encodeURIComponent(event)}`, { method: "DELETE" });
   console.log(JSON.stringify({ fn: "notify", event, sent, failed, removed }));
   return json({ sent, failed, removed });
 }

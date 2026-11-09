@@ -52,9 +52,10 @@ Until both exist, the trigger does nothing and case writes still succeed.
 
 ## 2. `analyze` (POST `/functions/v1/analyze`)
 
-- Requires a **signed-in user's** access token (`Authorization: Bearer <session token>`). The anon key alone gets `401` (the gateway accepts it, so the function checks with Auth itself).
+- Requires a **signed-in user's** access token (`Authorization: Bearer <session token>`). The anon key alone gets `401` (the gateway accepts it, so the function checks itself via the `claim_ai_call` RPC).
+- Budget: **60 calls per user per hour**, then `429`.
 - Calls `claude-haiku-5-5` via the Messages API (`fetch`, `anthropic-version: 2023-06-01`), `output_config.format` = JSON schema, effort `low`, aborted after **8 s**.
-- The message is fenced as untrusted data; instructions inside it are ignored by the system prompt, and the server re-checks the answer: every field present, enums valid, lengths, ≤ 3 uncertainties, no `%`, no links in the guardian summary or verification step, and no phone number from the message in either.
+- The message is fenced as untrusted data; instructions inside it are ignored by the system prompt, and the server re-checks the answer: every field present, enums valid, lengths, ≤ 3 uncertainties, and in every shown string no `%`, no link and no phone number taken from the message; the guardian summary may not quote the message (no shared run of 25+ characters), since it gets stored.
 - **Never logs or stores the message text.** Logs are one JSON line: status, latency, category, level.
 
 ### Request (unchanged)
@@ -81,6 +82,7 @@ Every field is required.
 | 400 | `invalid_json`, `invalid_body`, `missing_text`, `invalid_app`, `invalid_sender_kind`, `invalid_rule_signals`, `invalid_thread_count`, `invalid_locale` |
 | 401 | `unauthorized` |
 | 413 | `text_too_long` |
+| 429 | `rate_limited` |
 | 502 | `invalid_model_output`, `ai_unavailable` |
 | 503 | `not_configured` |
 | 504 | `ai_timeout`, `ai_unavailable` (network) |
@@ -89,7 +91,7 @@ Every field is required.
 
 ## 3. Database
 
-Tables: `circles`, `members`, `cases` (no message text, ever), plus `device_tokens`, `push_log`, `join_attempts`.
+Tables: `circles`, `members`, `cases` (no message text, ever), plus `device_tokens`, `push_log`, `join_attempts`, `ai_calls` (user id + time only).
 
 | Who | Can |
 |---|---|
@@ -106,10 +108,11 @@ New column: `cases.requested_by_user boolean default false` — set `true` when 
 | RPC | Returns | Notes |
 |---|---|---|
 | `create_circle(p_display_name, p_role='protected', p_name='Family')` | `circle_id, invite_code, member_id` | 6-digit code, valid 24 h |
-| `join_circle(p_code, p_display_name, p_role='guardian')` | `circle_id, member_id` — **zero rows = invalid or expired code** | 10 failed tries / 15 min / user, then raises `too many attempts`. Re-joining keeps your role |
+| `join_circle(p_code, p_display_name, p_role='guardian')` | `circle_id, member_id` — **zero rows = invalid, used or expired code** | **Codes are single-use**: a new join expires it, so call `refresh_invite_code` to invite the next person. `'protected'` only if the circle has none yet. 10 failed tries / 15 min / user, then raises `too many attempts`. Re-joining keeps your role |
 | `refresh_invite_code(p_circle)` | new code | members only |
 | `register_device(p_member_id, p_token, p_environment='production')` | token row id | token = lowercase hex; `sandbox` for Xcode/debug builds, `production` for TestFlight/App Store |
 | `unregister_device(p_token)` | — | only your own token |
+| `claim_ai_call()` | boolean | used by `analyze`; not for the app |
 
 ---
 
@@ -129,7 +132,7 @@ case insert/update ──► trigger cases_notify ──pg_net──► notify (
 | `status` → `checking` / `resolved` | protected member | "Daniel is checking…" |
 | `verify_answer` set | protected member | `no` is `time-sensitive` |
 
-- Each `(case, event)` is claimed in `push_log` first, so a repeated trigger sends nothing.
+- Each `(case, event)` is claimed in `push_log` first, so a repeated trigger sends nothing. If every send fails, the claim is released so a re-delivery can retry.
 - Tokens APNs reports as `410` / `BadDeviceToken` / `Unregistered` are deleted.
 - Payload: `{"aps":{"alert":{"title","body"},"sound":"default","interruption-level","thread-id":"stead-cases"},"case_id","event"}`. No summary, link, code or message content. The app fetches the case (RLS-checked) after opening.
 
@@ -192,7 +195,7 @@ Recovery (instead of 3 s polling): refetch `cases where circle_id = … order by
 
 | Test | Command | Needs |
 |---|---|---|
-| Function unit tests (19): validation, prompt fencing, 401/502/504 paths, no text in logs, push rules, consent, dedupe, dead-token removal, ES256 JWT | `deno test --allow-env supabase/functions` | nothing |
+| Function unit tests (21): validation, prompt fencing, 401/502/504 paths, no text in logs, push rules, consent, dedupe, dead-token removal, ES256 JWT | `deno test --allow-env supabase/functions` | nothing |
 | Authorization (RLS/RPC) test, rolls back | `psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/authorization_test.sql` | local (`npx supabase start`) or real DB |
 | Live AI eval, 8 cases from the brief | `SUPABASE_URL=… SUPABASE_ANON_KEY=… deno run --allow-net --allow-env supabase/functions/analyze/eval.ts` | deployed `analyze` + Anthropic key |
 | Real push | Install a debug build on a guardian iPhone, register, create a Level 3 case from the protected phone | APNs key + device |
@@ -201,5 +204,7 @@ Use `.example` domains in test messages, never real scam links.
 
 ### Known limits
 - Invite-code guessing is limited per user, and anonymous sign-ups are capped per IP by Supabase Auth; there's no per-IP limit of our own.
-- `push_log` claims a push before sending: if APNs is down at that moment, that push is not retried (Realtime and the foreground refetch still deliver the update).
+- pg_net doesn't retry: if APNs is down when a case is written, that push is lost (Realtime and the foreground refetch still deliver the update).
+- A guardian on a `verify_identity` case with no target can answer for the circle. Single-use codes keep strangers out, but the protected person's app should show who answered.
+- Display names show in pushes (1–40 chars, enforced). Members choose their own, so a member could pick a misleading one.
 - A Level 3 case pushes regardless of `auto_share` (urgent by design); the app decides whether a Level 3 case is created when auto-share is off.

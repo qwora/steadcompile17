@@ -70,8 +70,9 @@ const GOOD = "ab".repeat(32), DEAD = "cd".repeat(32);
 for (const [k, v] of Object.entries({ NOTIFY_SECRET: "s3cret", APNS_KEY_ID: "K", APNS_TEAM_ID: "T", APNS_BUNDLE_ID: "com.qawi.stead",
   SUPABASE_URL: "https://db.example", SUPABASE_SERVICE_ROLE_KEY: "service" })) Deno.env.set(k, v);
 
-function world(caseRow: CaseRow & { circle_id: string }) {
+function world(caseRow: CaseRow & { circle_id: string }, onlyDead = false) {
   const claimed = new Set<string>();
+  const released: string[] = [];
   const pushes: { url: string; headers: Headers; body: unknown }[] = [];
   const deleted: string[] = [];
   const f = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -86,7 +87,9 @@ function world(caseRow: CaseRow & { circle_id: string }) {
       if (claimed.has(k)) return Response.json([]);
       claimed.add(k); return Response.json([b]);
     }
+    if (url.includes("/rest/v1/push_log?") && init?.method === "DELETE") { released.push(url); return new Response(null, { status: 204 }); }
     if (url.includes("/rest/v1/device_tokens?member_id=in.")) {
+      if (onlyDead) return Response.json([{ device_token: DEAD, environment: "production" }]);
       return Response.json([{ device_token: GOOD, environment: "sandbox" }, { device_token: DEAD, environment: "production" }]);
     }
     if (url.includes("/rest/v1/device_tokens?device_token=eq.")) { deleted.push(url.split("eq.")[1]); return new Response(null, { status: 204 }); }
@@ -96,7 +99,7 @@ function world(caseRow: CaseRow & { circle_id: string }) {
     }
     throw new Error("unexpected " + url);
   }) as typeof fetch;
-  return { f, pushes, deleted };
+  return { f, pushes, deleted, released };
 }
 const call = (f: typeof fetch, event = "created", secret = "s3cret") =>
   handle(new Request("http://x/notify", { method: "POST", headers: { "x-stead-secret": secret }, body: JSON.stringify({ case_id: CASE, event }) }),
@@ -136,4 +139,10 @@ Deno.test("handler: level 2 without consent sends nothing", async () => {
 Deno.test("handler: unknown event rejected", async () => {
   const w = world({ ...base, id: CASE, circle_id: "circ" });
   assertEquals((await call(w.f, "status:open")).status, 400);
+});
+
+Deno.test("handler: when every send fails the claim is released for a retry", async () => {
+  const w = world({ ...base, id: CASE, level: 3, circle_id: "circ" }, true);
+  assertEquals(await (await call(w.f)).json(), { sent: 0, failed: 1, removed: 1 });
+  assertEquals(w.released.length, 1);
 });
