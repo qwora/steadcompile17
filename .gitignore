@@ -1,0 +1,17 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcarchive
+*.ipa
+
+# Secrets: never commit
+*.p8
+.env
+.env.*
+supabase/.temp/
+supabase/.branches/
+
+# macOS
+.DS_Store
