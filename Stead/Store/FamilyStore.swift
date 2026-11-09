@@ -56,6 +56,11 @@ struct FamilyKey: Codable, Identifiable, Hashable {
     var myName: String
     var color: KittenColor
     var pairedAt = Date()
+    /// true when this phone scanned the QR (code side 1); false when it showed the QR (side 0).
+    var fromScan: Bool?
+
+    // shortcut: keys saved before `fromScan` existed are guessed: only scanned keys had `myName` set.
+    var side: UInt8 { (fromScan ?? !myName.isEmpty) ? 1 : 0 }
 }
 
 /// Family members and keys, stored on this phone. Secrets live in the Keychain, not here.
@@ -146,9 +151,11 @@ final class FamilyStore: ObservableObject {
     func member(matching sender: String) -> FamilyMember? { members.first { $0.matches(sender: sender) } }
     func member(id: UUID) -> FamilyMember? { members.first { $0.id == id } }
 
+    /// Checks the code the OTHER phone shows (never the one this phone shows for them).
     func verify(code: String, memberID: UUID) -> Bool {
         guard let secret = SecretVault.load(id: memberID) else { return false }
-        return FamilyCode.verify(code, secret: secret)
+        let mySide = keys.first { $0.id == memberID }?.side ?? 0
+        return FamilyCode.verify(code, secret: secret, side: 1 - mySide)
     }
 
     // MARK: Family-member side
@@ -157,12 +164,12 @@ final class FamilyStore: ObservableObject {
         SecretVault.save(payload.secret, id: payload.id)
         keys.removeAll { $0.id == payload.id }
         keys.append(FamilyKey(id: payload.id, protectedName: payload.protectedName, myName: myName,
-                              color: KittenColor(rawValue: payload.color) ?? .blue))
+                              color: KittenColor(rawValue: payload.color) ?? .blue, fromScan: true))
         save()
     }
 
     func currentCode(for key: FamilyKey) -> String? {
-        SecretVault.load(id: key.id).map { FamilyCode.code(secret: $0) }
+        SecretVault.load(id: key.id).map { FamilyCode.code(secret: $0, side: key.side) }
     }
 
     // MARK: Helpers

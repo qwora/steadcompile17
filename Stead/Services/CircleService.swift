@@ -146,7 +146,6 @@ final class CircleService: ObservableObject {
             summary_for_guardian: "Someone claiming to be \(name) gave the wrong family code.",
             recommended_verification: "Call \(name) on the number you already have.",
             verify_target_member_id: nil, requested_by_user: false), for: eventID)
-        EventStore.shared.update(eventID) { $0.familyStatus = .shared }
     }
 
     func syncConsent() async {
@@ -234,6 +233,7 @@ final class CircleService: ObservableObject {
         Task {
             await refresh()
             if let event = EventStore.shared.events.first(where: { $0.caseID == id }) { Router.shared.open(event.id) }
+            else { Router.shared.tab = .home }
         }
     }
 
@@ -332,7 +332,7 @@ final class CircleService: ObservableObject {
         struct Inserted: Decodable { let id: UUID }
         if let r: Inserted = try? await client.from("cases").insert(row, returning: .representation)
             .select("id").single().execute().value {
-            EventStore.shared.update(eventID) { $0.caseID = r.id }
+            EventStore.shared.update(eventID) { $0.caseID = r.id; $0.familyStatus = .shared }
         }
     }
 

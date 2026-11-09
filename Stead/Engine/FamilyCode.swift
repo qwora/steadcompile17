@@ -15,8 +15,10 @@ enum FamilyCode {
         return Data(bytes)
     }
 
-    static func code(secret: Data, at date: Date = .now) -> String {
-        code(secret: secret, counter: UInt64(date.timeIntervalSince1970 / step))
+    /// `side`: 0 = the phone that showed the QR, 1 = the phone that scanned it. Each side has its own
+    /// code, so a scammer can't ask someone to read out a code from their own phone and type it back.
+    static func code(secret: Data, side: UInt8, at date: Date = .now) -> String {
+        code(secret: secret, side: side, counter: UInt64(date.timeIntervalSince1970 / step))
     }
 
     /// Seconds until the current code changes.
@@ -25,16 +27,16 @@ enum FamilyCode {
     }
 
     /// Accepts the current code and the one before/after, to allow for reading it out and typing.
-    static func verify(_ input: String, secret: Data, at date: Date = .now) -> Bool {
+    static func verify(_ input: String, secret: Data, side: UInt8, at date: Date = .now) -> Bool {
         let digits = input.filter(\.isNumber)
         guard digits.count == 6 else { return false }
         let now = UInt64(date.timeIntervalSince1970 / step)
-        return [now &- 1, now, now + 1].contains { code(secret: secret, counter: $0) == digits }
+        return [now &- 1, now, now + 1].contains { code(secret: secret, side: side, counter: $0) == digits }
     }
 
-    private static func code(secret: Data, counter: UInt64) -> String {
+    private static func code(secret: Data, side: UInt8, counter: UInt64) -> String {
         var big = counter.bigEndian
-        let message = Data(bytes: &big, count: 8)
+        let message = Data(bytes: &big, count: 8) + [side]
         let mac = Array(HMAC<SHA256>.authenticationCode(for: message, using: SymmetricKey(data: secret)))
         let offset = Int(mac[mac.count - 1] & 0x0f)
         let value = (UInt32(mac[offset] & 0x7f) << 24) | (UInt32(mac[offset + 1]) << 16)

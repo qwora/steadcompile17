@@ -111,7 +111,7 @@ struct FamilyView: View {
                     Button {
                         Task {
                             let invite = await CircleService.shared.inviteForPairing(myName: myName)
-                            showingQR = family.payload(for: m, protectedName: myName, invite: invite)
+                            showingQR = family.payload(for: m, protectedName: myName.isEmpty ? "Family" : myName, invite: invite)
                         }
                     } label: { Label("Show pairing QR", systemImage: "qrcode") }
                     Button { linkingMember = m.id; pickerOpen = true } label: {

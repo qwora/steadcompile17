@@ -36,7 +36,7 @@ private struct CaseCard: View {
     private var person: String { circle.name(of: item.protected_member_id) ?? "Family" }
     private var me: UUID? { circle.myMemberID(in: item.circle_id) }
     private var asksMe: Bool {
-        item.kind == "verify_identity" && item.verify_answer == nil
+        item.kind == "verify_identity" && item.verify_answer == nil && item.status != "resolved"
             && (item.verify_target_member_id == nil || item.verify_target_member_id == me)
     }
 

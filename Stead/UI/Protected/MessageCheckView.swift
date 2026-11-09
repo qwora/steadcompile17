@@ -6,6 +6,8 @@ struct MessageCheckView: View {
     @EnvironmentObject private var store: EventStore
     @StateObject private var speaker = Speaker.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var asking = false
+    @State private var askFailed = false
 
     var body: some View {
         Group {
@@ -13,6 +15,7 @@ struct MessageCheckView: View {
         }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { store.update(eventID) { if $0.pausedAt == nil { $0.pausedAt = .now } } }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { Button("Done") { speaker.stop(); dismiss() } }
         }
@@ -153,10 +156,18 @@ struct MessageCheckView: View {
         VStack(spacing: 12) {
             switch event.familyStatus {
             case .none:
-                Button { FamilyBridge.share(event.id) } label: {
-                    Label("Ask family to check", systemImage: "person.2.fill")
+                Button {
+                    asking = true; askFailed = false
+                    Task { askFailed = !(await FamilyBridge.share(event.id)); asking = false }
+                } label: {
+                    Label(asking ? "Asking family…" : "Ask family to check", systemImage: "person.2.fill")
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .disabled(asking)
+                if askFailed {
+                    Text("Couldn't reach your family. Check the internet, or add family in the Family tab.")
+                        .font(.subheadline).foregroundStyle(Theme.muted)
+                }
             default:
                 Card {
                     FamilyStatusTag(status: event.familyStatus).font(.headline)

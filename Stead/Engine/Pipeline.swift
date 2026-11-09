@@ -124,14 +124,14 @@ enum FamilyBridge {
     /// Awaited by the pipeline, so a background Shortcut run doesn't end before the case is written.
     static func escalate(_ event: MessageEvent) async {
         guard event.level >= .beCareful, Settings.autoShareSerious, event.familyStatus == .none else { return }
-        EventStore.shared.update(event.id) { $0.familyStatus = .shared }
-        if let shared = EventStore.shared.event(id: event.id) { await CircleService.shared.share(shared, requested: false) }
+        await CircleService.shared.share(event, requested: false)
     }
 
     /// `requested`: she tapped "Ask family" herself, so family is told even at Level 1.
-    static func share(_ id: UUID, requested: Bool = true) {
-        EventStore.shared.update(id) { $0.familyStatus = .shared }
-        guard let event = EventStore.shared.event(id: id) else { return }
-        Task { await CircleService.shared.share(event, requested: requested) }
+    /// Returns true once the case is on the server (familyStatus becomes .shared).
+    static func share(_ id: UUID, requested: Bool = true) async -> Bool {
+        guard let event = EventStore.shared.event(id: id) else { return false }
+        await CircleService.shared.share(event, requested: requested)
+        return EventStore.shared.event(id: id)?.familyStatus == .shared
     }
 }
