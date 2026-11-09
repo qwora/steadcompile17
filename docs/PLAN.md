@@ -73,7 +73,7 @@ Stead/
   Services/
     AnalyzeClient   POST /analyze, 10 s timeout, schema validation
     CircleService   anon sign-in, create/join circle, members
-    CaseService     create/update cases, realtime subscription (polling fallback 3 s)
+    CaseService     create/update cases, Realtime subscription, refetch on foreground/reconnect/push tap (60 s only while disconnected)
     Notifier        local notifications (timeSensitive for Level 2–3), categories + actions
     Speaker         AVSpeechSynthesizer, reads the warning in Korean / English / Malay
   Store/          EventStore (local JSON in Application Support): every message event + result
@@ -144,8 +144,8 @@ cases    (id uuid pk, circle_id fk, protected_member_id fk, kind text check in (
 ```
 - **No raw message text anywhere in the database.**
 - RLS: a user can read/write rows only where `is_member(circle_id)`. Guardians can update `status`, `handled_by`, `resolution`, `verify_answer`; only the protected member inserts cases.
-- RPCs (security definer): `create_circle(name, display_name)` → returns code; `join_circle(code, role, display_name)` → checks the code and expiry, inserts the member.
-- Realtime enabled on `cases`.
+- RPCs (security definer): `create_circle(display_name, role, name)` → returns code; `join_circle(code, display_name, role)` → checks code and expiry (zero rows = rejected, failed tries limited), inserts the member; `register_device` / `unregister_device` for APNs tokens.
+- Realtime enabled on `cases` and `members`. APNs push via the `notify` function, fired by a trigger on `cases` (see BACKEND_TASKS.md §4).
 
 ---
 
@@ -191,7 +191,7 @@ Times are targets. **Feature freeze 13:45.** Each phase ends with a commit and a
 1. Share extension: share text or a **screenshot** to Stead (Vision OCR) — the answer for phones without iOS 27.
 2. Daniel's 10-second voice note that plays on Mum's Level 2–3 warning.
 3. Family code word reminder on impersonation warnings.
-4. APNs push to the guardian when their app is closed (needs an APNs key).
+4. ~~APNs push to the guardian when their app is closed~~ backend built (`notify`); iOS registration still to do.
 5. Weekly summary for the family.
 
 ---
