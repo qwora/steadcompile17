@@ -55,7 +55,9 @@ Deno.test("output validation: schema, enums, nulls, safety rules", () => {
   assertEquals(validateAssessment({ ...good, explanation_for_user: "Please call 010 5521 0937 to confirm." }, SECRET_TEXT), null,
     "number from the message in the explanation");
   assertEquals(validateAssessment({ ...good, uncertainties: ["Check https://sw.example/xyz"] }, SECRET_TEXT), null, "link in uncertainties");
-  assertEquals(validateAssessment({ ...good, summary_for_guardian: "It says: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다." }, "[국외발신] 도로 관리24: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다."), null,
+  // A summary that quotes the message is replaced with a fixed one, so nothing quoted reaches the DB.
+  const quoted = validateAssessment({ ...good, summary_for_guardian: "It says: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다." }, "[국외발신] 도로 관리24: 미납 과태료 안내. 오늘까지 납부하지 않으면 가산금이 부과됩니다.");
+  assertEquals(quoted?.summary_for_guardian, "A message pretending to be a government office, asking for a payment.",
     "summary quotes the message");
 });
 

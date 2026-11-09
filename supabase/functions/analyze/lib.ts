@@ -154,10 +154,27 @@ export function validateAssessment(raw: unknown, messageText: string): Assessmen
   const numbersInMessage = digits(messageText).match(/\+?\d{6,}/g) ?? [];
   if (shown.some((s) => numbersInMessage.some((n) => digits(s).includes(n)))) return null;
   // The guardian summary is stored in `cases`: it must not quote the message (no raw text in the DB).
-  if (sharesLongRun(a.summary_for_guardian as string, messageText, 25)) return null;
+  // Rather than throw away a good assessment, replace a quoting summary with one of our own words.
+  if (sharesLongRun(a.summary_for_guardian as string, messageText, 25)) {
+    a.summary_for_guardian = SAFE_SUMMARY[a.category as string] ?? SAFE_SUMMARY.other;
+  }
 
   return a as unknown as Assessment;
 }
+
+/** Family-note fallbacks that never contain message text. */
+const SAFE_SUMMARY: Record<string, string> = {
+  government_impersonation: "A message pretending to be a government office, asking for a payment.",
+  bank_impersonation: "A message pretending to be a bank, asking for details or a payment.",
+  delivery_scam: "A fake delivery notice asking for a fee or details.",
+  family_impersonation: "Someone claiming to be family on a new number, asking for help or money.",
+  investment_scam: "An investment pitch promising unrealistic returns.",
+  account_takeover: "A message from a known contact that looks like their account was hacked.",
+  romance: "A message that looks like a romance scam.",
+  job_scam: "A job offer that looks like a scam.",
+  not_a_scam: "An ordinary message.",
+  other: "A message with warning signs.",
+};
 
 /** True if `a` and `b` share any run of `n` characters (whitespace-insensitive, case-insensitive). */
 export function sharesLongRun(a: string, b: string, n: number): boolean {
